@@ -44,11 +44,12 @@
     font-size:.95rem;letter-spacing:.42em;text-transform:uppercase;
   }
   .sub{font-size:.68rem;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
-  .transport{margin-left:auto;display:flex;gap:.55rem;align-items:center}
+  .transport{margin-left:auto;display:flex;gap:.55rem;align-items:center;flex-shrink:0}
   .tbtn{
     border:1px solid var(--line);
     padding:.5rem 1.1rem;
     font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;
+    white-space:nowrap;
     background:var(--panel);
     transition:background .18s,border-color .18s,color .18s;
   }
@@ -56,6 +57,16 @@
   .tbtn[data-on="1"]{background:var(--amber);color:#101A22;border-color:var(--amber)}
   .tbtn.rec[data-on="1"]{background:var(--oxide);color:#F4EFE0;border-color:var(--oxide)}
   .tbtn[disabled]{opacity:.35;cursor:not-allowed}
+  /* トグルボタン: LED と on/off 表示で状態を明示 */
+  .tbtn.toggle{display:inline-flex;align-items:center;gap:.55rem}
+  .tbtn.toggle .led{
+    width:.5rem;height:.5rem;border-radius:50%;
+    background:var(--dim);opacity:.5;
+    transition:background .18s,opacity .18s,box-shadow .18s;
+  }
+  .tbtn.toggle[data-on="1"] .led{background:#101A22;opacity:1;box-shadow:0 0 0 3px rgba(16,26,34,.18)}
+  .tbtn.toggle .tstate{font-size:.62rem;letter-spacing:.16em;opacity:.6;min-width:2.1em;text-align:right}
+  .tbtn.toggle[data-on="1"] .tstate{opacity:.85}
 
   /* ---- main grid ---- */
   main{
@@ -79,7 +90,7 @@
 
   /* ---- presets ---- */
   .preset{
-    display:block;width:100%;text-align:left;
+    display:block;width:100%;text-align:left;cursor:pointer;
     padding:.36rem .6rem;margin-bottom:.14rem;
     font-size:.94rem;letter-spacing:.14em;
     border-left:2px solid transparent;color:var(--dim);
@@ -139,8 +150,6 @@
     padding:.45rem .65rem;opacity:0;transition:opacity .12s;
   }
   #tip.on{opacity:1}
-  [data-tip]{cursor:help}
-  .preset[data-tip]{cursor:pointer}
 
   /* ---- params ---- */
   .param{margin-bottom:.62rem}
@@ -228,7 +237,7 @@
   <div class="sub">generative ambient / minimal / drone</div>
   <div class="sub" style="opacity:.6">v1.1</div>
   <div class="transport">
-    <button class="tbtn" id="power" data-on="0">起動</button>
+    <button class="tbtn toggle" id="power" data-on="0" aria-pressed="false" aria-label="発音" data-tip="発音のon/offを切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可"><span class="led" aria-hidden="true"></span>発音<span class="tstate" aria-hidden="true">off</span></button>
     <button class="tbtn rec" id="rec" data-on="0" disabled>録音</button>
   </div>
 </header>
@@ -1152,23 +1161,32 @@ function readout(){
 }
 seaColors();
 
-/* ---- 起動 / 録音 ---- */
+/* ---- 発音 / 録音 ---- */
 const powerBtn=document.getElementById('power');
+const powerState=powerBtn.querySelector('.tstate');
 const recBtn=document.getElementById('rec');
+
+// 発音トグルの見た目を状態に同期 (ラベルは「発音」固定)
+function setPowerUI(on){
+  powerBtn.dataset.on=on?'1':'0';
+  powerBtn.setAttribute('aria-pressed',on?'true':'false');
+  powerState.textContent=on?'on':'off';
+}
+setPowerUI(false);
 
 powerBtn.addEventListener('click',async()=>{
   if(!running){
     if(!ctx) build();
     await ctx.resume();
     running=true;
-    powerBtn.dataset.on='1'; powerBtn.textContent='停止';
+    setPowerUI(true);
     recBtn.disabled=false;
     scheduleEvents(); scheduleRoot(); scheduleGrains();
     stepIdx=0; barCount=-1; chordPos=-1; nextStepTime=ctx.currentTime+.12;
     clearInterval(seqTimer); seqTimer=setInterval(seqTick,25);
   }else{
     running=false;
-    powerBtn.dataset.on='0'; powerBtn.textContent='起動';
+    setPowerUI(false);
     clearTimeout(eventTimer); clearTimeout(rootTimer); clearTimeout(grainTimer);
     clearInterval(seqTimer); uiStep=-1; renderSteps();
     apply();
