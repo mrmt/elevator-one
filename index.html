@@ -226,6 +226,7 @@
 <header>
   <div class="mark">Elevator One</div>
   <div class="sub">generative ambient / minimal / drone</div>
+  <div class="sub" style="opacity:.6">v1.1</div>
   <div class="transport">
     <button class="tbtn" id="power" data-on="0">起動</button>
     <button class="tbtn rec" id="rec" data-on="0" disabled>録音</button>
@@ -234,7 +235,13 @@
 
 <main>
   <section>
-    <div class="eyebrow">雰囲気</div>
+    <div class="eyebrow" style="display:flex;justify-content:space-between;align-items:baseline">
+      <span>雰囲気</span>
+    </div>
+    <button class="toggle" id="shuffle" aria-pressed="false" style="margin-bottom:.7rem"
+      data-tip="30秒ごとに雰囲気をランダムに切り替える">
+      <span>シャッフル</span><span class="lamp"></span>
+    </button>
     <div id="presets"></div>
   </section>
 
@@ -914,19 +921,43 @@ setInterval(()=>{
    UI
    ============================================================ */
 const presetsEl=document.getElementById('presets');
+function applyPreset(idx,btn){
+  const pr=PRESETS[idx];
+  for(const k in pr.p) target[k]=pr.p[k];
+  [...presetsEl.children].forEach(c=>c.setAttribute('aria-pressed','false'));
+  if(btn) btn.setAttribute('aria-pressed','true');
+  syncUI(true);
+}
 PRESETS.forEach((pr,i)=>{
   const b=document.createElement('button');
   b.className='preset'; b.setAttribute('aria-pressed','false');
   b.dataset.tip=PRESET_TIP[pr.n]||'';
   b.innerHTML=`${pr.n}<small>${pr.d}</small>`;
-  b.addEventListener('click',()=>{
-    for(const k in pr.p) target[k]=pr.p[k];
-    [...presetsEl.children].forEach(c=>c.setAttribute('aria-pressed','false'));
-    b.setAttribute('aria-pressed','true');
-    syncUI(true);
-  });
+  b.addEventListener('click',()=>{ applyPreset(i,b); stopShuffle(); });
   presetsEl.appendChild(b);
 });
+
+/* ---- シャッフル ---- */
+let shuffleTimer=null, shuffleOn=false, lastShuffleIdx=-1;
+const shuffleBtn=document.getElementById('shuffle');
+function shuffleOnce(){
+  let idx;
+  do{ idx=Math.floor(Math.random()*PRESETS.length); }while(idx===lastShuffleIdx && PRESETS.length>1);
+  lastShuffleIdx=idx;
+  applyPreset(idx, presetsEl.children[idx]);
+}
+function startShuffle(){
+  shuffleOn=true; shuffleBtn.setAttribute('aria-pressed','true');
+  shuffleOnce();
+  clearInterval(shuffleTimer);
+  shuffleTimer=setInterval(shuffleOnce,30000);
+}
+function stopShuffle(){
+  if(!shuffleOn) return;
+  shuffleOn=false; shuffleBtn.setAttribute('aria-pressed','false');
+  clearInterval(shuffleTimer);
+}
+shuffleBtn.addEventListener('click',()=>{ shuffleOn ? stopShuffle() : startShuffle(); });
 
 const paramsEl=document.getElementById('params');
 const seqEl=document.getElementById('seqparams');
@@ -936,7 +967,7 @@ function makeSlider(key,host){
   wrap.innerHTML=`<label for="s_${key}"><span data-tip="${TIPS[key]||''}">${P[key].label}</span><span class="val" id="v_${key}"></span></label>`;
   const r=document.createElement('input');
   r.type='range'; r.min=0; r.max=1; r.step=.005; r.value=target[key]; r.id='s_'+key;
-  r.addEventListener('input',()=>{ target[key]=parseFloat(r.value); updateVal(key); clearPresetHighlight(); });
+  r.addEventListener('input',()=>{ target[key]=parseFloat(r.value); updateVal(key); clearPresetHighlight(); stopShuffle(); });
   wrap.appendChild(r); host.appendChild(wrap);
   inputs[key]=r; updateVal(key);
 }
@@ -1014,6 +1045,7 @@ function setFromPointer(e){
   target.bright  = clamp((e.clientX-r.left)/r.width);
   target.density = clamp((e.clientY-r.top)/r.height);
   clearPresetHighlight();
+  stopShuffle();
 }
 plane.addEventListener('pointerdown',e=>{dragging=true;plane.setPointerCapture(e.pointerId);setFromPointer(e)});
 plane.addEventListener('pointermove',e=>{if(dragging)setFromPointer(e)});
