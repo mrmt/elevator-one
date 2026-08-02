@@ -83,4 +83,5 @@ MIT
 - `docs/ARCHITECTURE.md` — オーディオグラフの結線、パラメータの流れ（target→current→AudioParam）、
   各サブシステム（質感チェーン・シーケンサ・展開の和声進行）の実装詳細
 - `docs/PRESETS.md` — 15種のプリセットそれぞれの設計意図と、新規プリセットを作るときの目安
+- `docs/TESTING.md` — Playwright によるテストの走らせ方と、テストを足すときの指針
 
