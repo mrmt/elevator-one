@@ -131,6 +131,8 @@ droneBus → texIn(gain) → shaper(WaveShaper) → texHP → texLP → ringGate
   音への反映は前述の補間ループと `apply()` に一任している。UI側に音声処理は一切ない
 - プリセットは `applyPreset(idx, btn)` 経由で適用。手動操作（スライダー/XYパッド/プリセット直接選択）は
   すべて `stopShuffle()` を呼び、シャッフル中の自動切り替えを止める
+- シャッフルは読み込み時に `startShuffle()` を呼んで既定でONにしてある。放置しても雰囲気が
+  変わり続けるのが既定の体験で、手動操作をした時点でOFFになる
 - ツールチップは `data-tip` 属性 + 単一の `#tip` 要素を使い回すグローバル委譲方式
   （`mouseover`/`mouseout`/`focusin`/`focusout` をdocumentに1回だけ登録）。
   新しい操作要素にツールチップを足したいときは `data-tip="説明文"` を属性に足すだけでよい

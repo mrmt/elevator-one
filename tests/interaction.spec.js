@@ -66,11 +66,19 @@ test('XYパッドの操作で明るさが変わる', async ({ page }, testInfo) 
   await expect(page.locator('#rb')).not.toHaveText(before);
 });
 
-test('プリセットを選ぶと選択状態になる', async ({ page }, testInfo) => {
+test('プリセットを選ぶと選択状態になり、シャッフルが解除される', async ({ page }, testInfo) => {
   if (isTouch(testInfo)) await page.locator('#tabs .tab[data-tab="mood"]').tap();
   const preset = page.locator('.preset[aria-pressed]').first();
   await preset.click();
   await expect(preset).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#shuffle')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('シャッフルが既定でONになっている', async ({ page }, testInfo) => {
+  if (isTouch(testInfo)) await page.locator('#tabs .tab[data-tab="mood"]').tap();
+  await expect(page.locator('#shuffle')).toHaveAttribute('aria-pressed', 'true');
+  // 起動時に1件が適用されるので、どれかが選択状態になっている
+  await expect(page.locator('.preset[aria-pressed="true"]')).toHaveCount(1);
 });
 
 test.describe('狭幅 (iOS / iPadOS)', () => {

@@ -282,7 +282,7 @@
     <div class="eyebrow" style="display:flex;justify-content:space-between;align-items:baseline">
       <span data-i18n="section.mood">雰囲気</span>
     </div>
-    <button class="toggle" id="shuffle" aria-pressed="false" style="margin-bottom:.7rem"
+    <button class="toggle" id="shuffle" aria-pressed="true" style="margin-bottom:.7rem"
       data-tip="30秒ごとに雰囲気をランダムに切り替える" data-i18n-tip="tip.shuffle">
       <span data-i18n="section.shuffle">シャッフル</span><span class="lamp"></span>
     </button>
@@ -1514,6 +1514,10 @@ langBtn.addEventListener('click',()=>{
 });
 // スクリプトは </body> 直前で同期実行されるため、初回描画前に反映される
 applyI18n();
+
+// シャッフルは既定でオン。プリセットを選ぶ / スライダーやパッドを操作すると解除される。
+// スライダーの inputs や syncUI() に依存するので、初期化がすべて済んだここで呼ぶ
+startShuffle();
 
 window.addEventListener('keydown',e=>{
   if(e.code==='Space'&&e.target===document.body){ e.preventDefault(); powerBtn.click(); }
