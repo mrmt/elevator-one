@@ -68,6 +68,16 @@
   .tbtn.toggle .tstate{font-size:.62rem;letter-spacing:.16em;opacity:.6;min-width:2.1em;text-align:right}
   .tbtn.toggle[data-on="1"] .tstate{opacity:.85}
 
+  /* ---- タブ (狭幅時のみ表示) ---- */
+  .tabs{display:none}
+  .tab{
+    flex:1;padding:.62rem .4rem;
+    font-size:.72rem;letter-spacing:.2em;
+    color:var(--dim);border-bottom:2px solid transparent;
+    transition:color .16s,border-color .16s,background .16s;
+  }
+  .tab[aria-selected="true"]{color:var(--amber);border-bottom-color:var(--amber);background:rgba(0,0,0,.16)}
+
   /* ---- main grid ---- */
   main{
     flex:1;min-height:0;display:grid;
@@ -205,15 +215,22 @@
   footer b{color:var(--ink);font-weight:400}
   .note{margin-left:auto;color:var(--dim)}
 
-  /* 幅が足りないときは1列に積み、ページ自体をスクロールさせる */
+  /* 幅が足りないときはタブで1セクションずつ表示し、1画面に収める。
+     ページ自体はスクロールさせない (背景グラデーションのせり上がりを防ぐ) */
   @media (max-width:900px){
-    body{height:auto;min-height:100dvh;overflow:auto}
-    main{grid-template-columns:1fr}
-    section{overflow:visible}
-    .plane-wrap{overflow:visible}
-    .plane{min-height:min(52dvh,300px)}
+    body{overscroll-behavior:none}
+    header{gap:.6rem;padding:.6rem .8rem .55rem}
+    header .sub{display:none}
+    .tabs{display:flex;background:rgba(0,0,0,.21);border-bottom:1px solid var(--line);flex:none}
+    main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
+    /* 属性セレクタを噛ませて .plane-wrap のクラス指定より詳細度を上げる */
+    main[data-tab]>section{display:none}
+    main[data-tab="mood"] #tab-mood,
+    main[data-tab="sound"] #tab-sound{display:block}
+    main[data-tab="pad"] #tab-pad{display:flex;flex-direction:column}
     .overlay{font-size:1rem;padding:0 1rem}
-    .transport{width:100%;margin-left:0}
+    footer{padding:.42rem .8rem}
+    footer .note{display:none}
   }
   /* 高さが足りないときは全体をさらに詰める */
   @media (min-width:901px) and (max-height:720px){
@@ -242,8 +259,15 @@
   </div>
 </header>
 
-<main>
-  <section>
+<!-- 狭幅時のみ表示。3セクションをタブで切り替えて1画面に収める -->
+<nav class="tabs" id="tabs">
+  <button class="tab" data-tab="mood" aria-selected="false">雰囲気</button>
+  <button class="tab" data-tab="pad" aria-selected="true">パッド</button>
+  <button class="tab" data-tab="sound" aria-selected="false">音作り</button>
+</nav>
+
+<main id="main" data-tab="pad">
+  <section id="tab-mood">
     <div class="eyebrow" style="display:flex;justify-content:space-between;align-items:baseline">
       <span>雰囲気</span>
     </div>
@@ -254,7 +278,7 @@
     <div id="presets"></div>
   </section>
 
-  <section class="plane-wrap">
+  <section class="plane-wrap" id="tab-pad">
     <div class="eyebrow">XYパッド — ドラッグで目標を移動</div>
     <div class="plane-outer">
       <div class="axis-v">
@@ -275,7 +299,7 @@
     <div class="axis"><span>16ステップ列</span><span id="bpmlab">—</span></div>
   </section>
 
-  <section>
+  <section id="tab-sound">
     <div class="eyebrow">パラメータ</div>
     <div id="params"></div>
     <button class="toggle" id="drift" aria-pressed="true" data-tip="放置しても目標値とルート音がゆっくり自然に揺れ続ける">
@@ -1174,13 +1198,25 @@ function setPowerUI(on){
 }
 setPowerUI(false);
 
+// 端末が対応する録音形式を選ぶ。iOS の Safari / Chrome は webm 非対応
+const REC_MIME=(()=>{
+  if(typeof MediaRecorder==='undefined') return null;
+  return ['audio/webm','audio/mp4'].find(m=>{
+    try{ return MediaRecorder.isTypeSupported(m); }catch(_){ return false; }
+  })||null;
+})();
+if(!REC_MIME){
+  recBtn.dataset.tip='この端末のブラウザは録音 (MediaRecorder) に対応していない';
+  recBtn.textContent='録音不可';
+}
+
 powerBtn.addEventListener('click',async()=>{
   if(!running){
     if(!ctx) build();
     await ctx.resume();
     running=true;
     setPowerUI(true);
-    recBtn.disabled=false;
+    recBtn.disabled=!REC_MIME;
     scheduleEvents(); scheduleRoot(); scheduleGrains();
     stepIdx=0; barCount=-1; chordPos=-1; nextStepTime=ctx.currentTime+.12;
     clearInterval(seqTimer); seqTimer=setInterval(seqTick,25);
@@ -1197,15 +1233,16 @@ powerBtn.addEventListener('click',async()=>{
 
 function stopRec(){ recorder.stop(); }
 recBtn.addEventListener('click',()=>{
+  if(!REC_MIME) return;
   if(!recorder||recorder.state==='inactive'){
     chunks=[];
-    recorder=new MediaRecorder(streamDest.stream,{mimeType:'audio/webm'});
+    recorder=new MediaRecorder(streamDest.stream,{mimeType:REC_MIME});
     recorder.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
     recorder.onstop=()=>{
-      const blob=new Blob(chunks,{type:'audio/webm'});
+      const blob=new Blob(chunks,{type:REC_MIME});
       const a=document.createElement('a');
       a.href=URL.createObjectURL(blob);
-      a.download='elevator-one-'+new Date().toISOString().replace(/[:.]/g,'-')+'.webm';
+      a.download='elevator-one-'+new Date().toISOString().replace(/[:.]/g,'-')+(REC_MIME==='audio/mp4'?'.m4a':'.webm');
       a.click();
       recBtn.dataset.on='0'; recBtn.textContent='録音';
     };
@@ -1215,6 +1252,15 @@ recBtn.addEventListener('click',()=>{
     stopRec();
   }
 });
+
+/* ---- タブ切替 (狭幅時のみ表示) ---- */
+const mainEl=document.getElementById('main');
+const tabBtns=[...document.querySelectorAll('#tabs .tab')];
+tabBtns.forEach(b=>b.addEventListener('click',()=>{
+  mainEl.dataset.tab=b.dataset.tab;
+  tabBtns.forEach(o=>o.setAttribute('aria-selected',String(o===b)));
+  resize(); // display:none 明けの canvas を再計測
+}));
 
 /* ---- ツールチップ ---- */
 const tipEl=document.getElementById('tip');
