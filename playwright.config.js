@@ -12,6 +12,8 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'on-first-retry',
+    // 表示言語はブラウザ言語で決まるので、既定を固定しないとCI環境依存になる
+    locale: 'ja-JP',
   },
 
   // 静的HTML1枚なので配信はpython3で足りる (ubuntu/macOSともに標準搭載)
@@ -38,17 +40,25 @@ export default defineConfig({
       testMatch: /interaction\.spec\.js/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
-    // iOS相当。WebKit + タッチ
+    // iOS相当。WebKit + タッチ。
+    // 英語は日本語より文字列が長く、ヘッダーが折り返す危険が一番高いのがこの幅なので、
+    // 狭幅のレイアウト検証だけは英語で走らせる
     {
       name: 'mobile-webkit',
       testMatch: /interaction\.spec\.js/,
-      use: { ...devices['iPhone 14'] },
+      use: { ...devices['iPhone 14'], locale: 'en-US' },
     },
     // iPadOS相当
     {
       name: 'tablet-webkit',
       testMatch: /interaction\.spec\.js/,
       use: { ...devices['iPad (gen 7)'] },
+    },
+    // 表示言語。locale はテスト側の test.use() で切り替える
+    {
+      name: 'i18n-chromium',
+      testMatch: /i18n\.spec\.js/,
+      use: { ...devices['Desktop Chrome'] },
     },
   ],
 });

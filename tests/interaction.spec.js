@@ -17,9 +17,9 @@ test('ページ全体がスクロールしない', async ({ page }) => {
   expect(scrollHeight).toBeLessThanOrEqual(clientHeight + 1);
 });
 
-test('発音ボタンとXYパッドがビューポート内に収まる', async ({ page }) => {
+test('ヘッダーのボタンとXYパッドがビューポート内に収まる', async ({ page }) => {
   const viewport = page.viewportSize();
-  for (const selector of ['#power', '#plane']) {
+  for (const selector of ['#lang', '#power', '#plane']) {
     const box = await page.locator(selector).boundingBox();
     expect(box, `${selector} が見えていない`).not.toBeNull();
     expect(box.x).toBeGreaterThanOrEqual(0);

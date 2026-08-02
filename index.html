@@ -57,6 +57,8 @@
   .tbtn[data-on="1"]{background:var(--amber);color:#101A22;border-color:var(--amber)}
   .tbtn.rec[data-on="1"]{background:var(--oxide);color:#F4EFE0;border-color:var(--oxide)}
   .tbtn[disabled]{opacity:.35;cursor:not-allowed}
+  /* 言語切替。狭幅でヘッダーが折り返さないよう他の .tbtn より詰める */
+  .tbtn.lang{padding:.5rem .7rem;letter-spacing:.18em}
   /* トグルボタン: LED と on/off 表示で状態を明示 */
   .tbtn.toggle{display:inline-flex;align-items:center;gap:.55rem}
   .tbtn.toggle .led{
@@ -109,6 +111,8 @@
   .preset:hover{color:var(--ink);background:var(--panel)}
   .preset[aria-pressed="true"]{color:var(--amber);border-left-color:var(--amber);background:var(--panel)}
   .preset small{display:block;font-size:.58rem;letter-spacing:.12em;color:var(--dim);margin-top:.15rem}
+  /* small には英語名が入る。en では見出しと同じ文字列になり冗長なので隠す */
+  html[lang="en"] .preset small{display:none}
 
   /* ---- plane ---- */
   .plane-wrap{display:flex;flex-direction:column;height:100%;overflow:hidden}
@@ -130,6 +134,8 @@
     font-size:.58rem;letter-spacing:.22em;color:var(--dim);
   }
   .axis-v span{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:.1em}
+  /* upright だと英字が1文字ずつ縦に並んで読めないので、en では90°回転させる */
+  html[lang="en"] .axis-v span{text-orientation:mixed;letter-spacing:.22em}
   .axis-v .mid{color:var(--ink)}
   .plane{flex:1}
 
@@ -221,6 +227,10 @@
     body{overscroll-behavior:none}
     header{gap:.6rem;padding:.6rem .8rem .55rem}
     header .sub{display:none}
+    /* 言語ボタンが増えた分、transport が1行に収まるよう詰める */
+    .transport{gap:.4rem}
+    .tbtn{padding:.5rem .8rem}
+    .tbtn.lang{padding:.5rem .6rem}
     .tabs{display:flex;background:rgba(0,0,0,.21);border-bottom:1px solid var(--line);flex:none}
     main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
     /* 属性セレクタを噛ませて .plane-wrap のクラス指定より詳細度を上げる */
@@ -252,98 +262,321 @@
 <header>
   <div class="mark">Elevator One</div>
   <div class="sub">generative ambient / minimal / drone</div>
-  <div class="sub" style="opacity:.6">v1.1</div>
+  <div class="sub" style="opacity:.6">v1.2</div>
   <div class="transport">
-    <button class="tbtn toggle" id="power" data-on="0" aria-pressed="false" aria-label="発音" data-tip="発音のon/offを切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可"><span class="led" aria-hidden="true"></span>発音<span class="tstate" aria-hidden="true">off</span></button>
+    <button class="tbtn lang" id="lang" data-i18n-tip="tip.lang" data-i18n-aria="transport.lang">JA</button>
+    <button class="tbtn toggle" id="power" data-on="0" aria-pressed="false" aria-label="発音" data-i18n-aria="transport.power" data-tip="発音のon/offを切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.power"><span class="led" aria-hidden="true"></span><span data-i18n="transport.power">発音</span><span class="tstate" aria-hidden="true">off</span></button>
     <button class="tbtn rec" id="rec" data-on="0" disabled>録音</button>
   </div>
 </header>
 
 <!-- 狭幅時のみ表示。3セクションをタブで切り替えて1画面に収める -->
 <nav class="tabs" id="tabs">
-  <button class="tab" data-tab="mood" aria-selected="false">雰囲気</button>
-  <button class="tab" data-tab="pad" aria-selected="true">パッド</button>
-  <button class="tab" data-tab="sound" aria-selected="false">音作り</button>
+  <button class="tab" data-tab="mood" aria-selected="false" data-i18n="tab.mood">雰囲気</button>
+  <button class="tab" data-tab="pad" aria-selected="true" data-i18n="tab.pad">パッド</button>
+  <button class="tab" data-tab="sound" aria-selected="false" data-i18n="tab.sound">音作り</button>
 </nav>
 
 <main id="main" data-tab="pad">
   <section id="tab-mood">
     <div class="eyebrow" style="display:flex;justify-content:space-between;align-items:baseline">
-      <span>雰囲気</span>
+      <span data-i18n="section.mood">雰囲気</span>
     </div>
     <button class="toggle" id="shuffle" aria-pressed="false" style="margin-bottom:.7rem"
-      data-tip="30秒ごとに雰囲気をランダムに切り替える">
-      <span>シャッフル</span><span class="lamp"></span>
+      data-tip="30秒ごとに雰囲気をランダムに切り替える" data-i18n-tip="tip.shuffle">
+      <span data-i18n="section.shuffle">シャッフル</span><span class="lamp"></span>
     </button>
     <div id="presets"></div>
   </section>
 
   <section class="plane-wrap" id="tab-pad">
-    <div class="eyebrow">XYパッド — ドラッグで目標を移動</div>
+    <div class="eyebrow" data-i18n="section.pad">XYパッド — ドラッグで目標を移動</div>
     <div class="plane-outer">
       <div class="axis-v">
-        <span>疎</span><span class="mid">密度</span><span>密</span>
+        <span data-i18n="pad.sparse">疎</span><span class="mid" data-i18n="pad.density">密度</span><span data-i18n="pad.dense">密</span>
       </div>
       <div class="plane" id="plane">
         <canvas id="cv"></canvas>
         <div class="overlay">
-          <div><span class="k">ルート音</span><b id="ro">—</b></div>
-          <div><span class="k">明るさ</span><b id="rb">—</b></div>
-          <div><span class="k">密度</span><b id="rd">—</b></div>
-          <div><span class="k">緊張</span><b id="rt">—</b></div>
+          <div><span class="k" data-i18n="pad.root">ルート音</span><b id="ro">—</b></div>
+          <div><span class="k" data-i18n="pad.bright">明るさ</span><b id="rb">—</b></div>
+          <div><span class="k" data-i18n="pad.density">密度</span><b id="rd">—</b></div>
+          <div><span class="k" data-i18n="pad.tension">緊張</span><b id="rt">—</b></div>
         </div>
       </div>
     </div>
-    <div class="axis"><span>暗</span><span style="color:var(--ink)">明るさ</span><span>明</span></div>
+    <div class="axis"><span data-i18n="pad.dark">暗</span><span style="color:var(--ink)" data-i18n="pad.bright">明るさ</span><span data-i18n="pad.light">明</span></div>
     <div class="steps" id="steps"></div>
-    <div class="axis"><span>16ステップ列</span><span id="bpmlab">—</span></div>
+    <div class="axis"><span data-i18n="section.steps">16ステップ列</span><span id="bpmlab">—</span></div>
   </section>
 
   <section id="tab-sound">
-    <div class="eyebrow">パラメータ</div>
+    <div class="eyebrow" data-i18n="section.params">パラメータ</div>
     <div id="params"></div>
-    <button class="toggle" id="drift" aria-pressed="true" data-tip="放置しても目標値とルート音がゆっくり自然に揺れ続ける">
-      <span>自動漂流</span><span class="lamp"></span>
+    <button class="toggle" id="drift" aria-pressed="true" data-tip="放置しても目標値とルート音がゆっくり自然に揺れ続ける" data-i18n-tip="tip.drift">
+      <span data-i18n="section.drift">自動漂流</span><span class="lamp"></span>
     </button>
-    <div class="seqhead"><div class="eyebrow" style="margin:0">シーケンサ</div></div>
+    <div class="seqhead"><div class="eyebrow" style="margin:0" data-i18n="section.seq">シーケンサ</div></div>
     <div id="seqparams" style="margin-top:.8rem"></div>
-    <button class="toggle" id="reseed" aria-pressed="false" style="margin-top:.2rem" data-tip="16ステップの音程とゲートをすべて引き直す">
-      <span>シーケンス再生成</span><span class="lamp"></span>
+    <button class="toggle" id="reseed" aria-pressed="false" style="margin-top:.2rem" data-tip="16ステップの音程とゲートをすべて引き直す" data-i18n-tip="tip.reseed">
+      <span data-i18n="section.reseed">シーケンス再生成</span><span class="lamp"></span>
     </button>
-    <div class="seqhead"><div class="eyebrow" style="margin:0">展開</div></div>
+    <div class="seqhead"><div class="eyebrow" style="margin:0" data-i18n="section.harm">展開</div></div>
     <div id="harmparams" style="margin-top:.8rem"></div>
   </section>
 </main>
 
 <footer>
-  <span class="note">白い十字が目標、琥珀のランプが現在の音。推移時間をかけて追いつきます</span>
+  <span class="note" data-i18n="footer.note">白い十字が目標、琥珀のランプが現在の音。推移時間をかけて追いつきます</span>
 </footer>
 
 <div id="tip" role="tooltip"></div>
+
+<!-- メッセージカタログ。UI文字列はすべてここにあり、直書きしない。
+     ja と en はキー集合が一致していること (tests/i18n.spec.js が検証する)。
+     アプリ本体のIIFEの外に置いてあるのは、データ塊を本体と分けて読めるようにするため。
+     window は汚さない (classic script のトップレベル const はグローバルレキシカルスコープに入るだけ) -->
+<script>
+const I18N = {
+ja: {
+  'transport.power':'発音',
+  'transport.rec':'録音',
+  'transport.recStop':'停止 / 保存',
+  'transport.recUnsupported':'録音不可',
+  'transport.lang':'表示言語を切り替える',
+
+  'tab.mood':'雰囲気',
+  'tab.pad':'パッド',
+  'tab.sound':'音作り',
+
+  'section.mood':'雰囲気',
+  'section.shuffle':'シャッフル',
+  'section.pad':'XYパッド — ドラッグで目標を移動',
+  'section.steps':'16ステップ列',
+  'section.params':'パラメータ',
+  'section.drift':'自動漂流',
+  'section.seq':'シーケンサ',
+  'section.reseed':'シーケンス再生成',
+  'section.harm':'展開',
+
+  'pad.sparse':'疎',
+  'pad.dense':'密',
+  'pad.dark':'暗',
+  'pad.light':'明',
+  'pad.density':'密度',
+  'pad.bright':'明るさ',
+  'pad.root':'ルート音',
+  'pad.tension':'緊張',
+
+  'param.weight':'重さ',
+  'param.motion':'ゆらぎ',
+  'param.tension':'緊張',
+  'param.space':'空間',
+  'param.grit':'ざらつき',
+  'param.level':'音量',
+  'param.glide':'推移時間',
+  'param.seq':'音量',
+  'param.tempo':'速度',
+  'param.mutate':'変異',
+  'param.reso':'カットオフ',
+  'param.sres':'レゾナンス',
+  'param.harm':'和声率',
+  'param.chordrhy':'刻み',
+
+  'tip.power':'発音のon/offを切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
+  'tip.lang':'表示言語を英語に切り替える',
+  'tip.recUnsupported':'この端末のブラウザは録音 (MediaRecorder) に対応していない',
+  'tip.shuffle':'30秒ごとに雰囲気をランダムに切り替える',
+  'tip.drift':'放置しても目標値とルート音がゆっくり自然に揺れ続ける',
+  'tip.reseed':'16ステップの音程とゲートをすべて引き直す',
+  'tip.glide':'目標値に追いつくまでのおおよその時間。長いほど変化がゆっくりになる',
+  'tip.weight':'全体の音域を下げ、低音の量を増やす',
+  'tip.motion':'LFOの深さと速さ。音量・音色・デチューンの揺れ',
+  'tip.tension':'和音の音程を協和から不協和へ連続的に変える',
+  'tip.space':'リバーブとディレイの量。奥行きと余韻の長さ',
+  'tip.grit':'ドローンの表面を荒らす。歪み・リングモジュレーション・微細な粉塵ノイズが増え、上げるほど金属を削るような粗いテクスチャになる',
+  'tip.level':'出力レベル',
+  'tip.seq':'シーケンサ全体の音量。0にするとドローンだけになる',
+  'tip.tempo':'シーケンスのテンポ。55〜150 BPM。推移時間をかけて加減速する',
+  'tip.mutate':'1小節ごとに音程・ゲート・オクターブが書き換わる確率',
+  'tip.reso':'シーケンス用フィルターの開き具合（110〜3200Hz）。1音ごとにここを基準に開閉する',
+  'tip.sres':'シーケンス用フィルターのQ。上げるほど癖の強い鳴りになる',
+  'tip.harm':'0でドローン展開、1で和声展開のコード。中間では両者がクロスフェードして重なる',
+  'tip.chordrhy':'0.08未満でコードは持続音。上げると刻みが細かくなり、0.5以上ではコードの切り替わりが4小節から2小節ごとになる',
+
+  'preset.stillness.name':'静止',
+  'preset.stillness.desc':'最低限の低いドローンだけ。出来事はほとんど起きず、ほぼ動かない',
+  'preset.mist.name':'霧',
+  'preset.mist.desc':'柔らかい中域とノイズ層。輪郭のぼやけた持続音',
+  'preset.ash.name':'灰',
+  'preset.ash.desc':'中域中心で粒子が多い。冷たく無彩色な質感',
+  'preset.rust.name':'錆',
+  'preset.rust.desc':'不協和と金属的共鳴が強い。軋むように不安定',
+  'preset.far-storm.name':'遠雷',
+  'preset.far-storm.desc':'深く重い低音と広い残響。遠くでまばらに鳴る',
+  'preset.glow.name':'白光',
+  'preset.glow.desc':'明るく協和的。高域のきらめきが多い',
+  'preset.abyss.name':'深海',
+  'preset.abyss.desc':'最も低く遅い。ほとんど動かない巨大な空間',
+  'preset.pressure.name':'圧',
+  'preset.pressure.desc':'密度も緊張も高く、押し寄せるような塊',
+  'preset.cruise.name':'巡航',
+  'preset.cruise.desc':'一定速度で走るシーケンス。RubyconやRicochet的な巡航感',
+  'preset.night-ride.name':'夜行',
+  'preset.night-ride.desc':'低速で共振の強いシーケンスと重い低音',
+  'preset.flux.name':'電磁',
+  'preset.flux.desc':'速く変異の多いシーケンス。落ち着かない電流的な動き',
+  'preset.abrasion.name':'研磨',
+  'preset.abrasion.desc':'ざらつきを極端まで上げた状態。歪みと粉塵で表面が削れていく',
+  'preset.stratum.name':'大気',
+  'preset.stratum.desc':'和声展開の持続コード。4小節ごとに和音が切り替わる',
+  'preset.equipoise.name':'均衡',
+  'preset.equipoise.desc':'和声展開の刻みモード。2小節ごとの和音と細かいコード刻み',
+  'preset.disequilibrium.name':'失調',
+  'preset.disequilibrium.desc':'ドローン展開と和声展開を半々で重ね、どちらにも定まらない状態',
+
+  'footer.note':'白い十字が目標、琥珀のランプが現在の音。推移時間をかけて追いつきます',
+},
+en: {
+  'transport.power':'Sound',
+  'transport.rec':'Record',
+  'transport.recStop':'Stop / Save',
+  'transport.recUnsupported':'No Record',
+  'transport.lang':'Switch display language',
+
+  'tab.mood':'mood',
+  'tab.pad':'pad',
+  'tab.sound':'sound',
+
+  'section.mood':'mood',
+  'section.shuffle':'shuffle',
+  'section.pad':'XY pad — drag to move the target',
+  'section.steps':'16 steps',
+  'section.params':'parameters',
+  'section.drift':'auto drift',
+  'section.seq':'sequencer',
+  'section.reseed':'reseed sequence',
+  'section.harm':'development',
+
+  'pad.sparse':'sparse',
+  'pad.dense':'dense',
+  'pad.dark':'dark',
+  'pad.light':'light',
+  'pad.density':'density',
+  'pad.bright':'brightness',
+  'pad.root':'root',
+  'pad.tension':'tension',
+
+  'param.weight':'weight',
+  'param.motion':'motion',
+  'param.tension':'tension',
+  'param.space':'space',
+  'param.grit':'grit',
+  'param.level':'level',
+  'param.glide':'glide',
+  'param.seq':'level',
+  'param.tempo':'tempo',
+  'param.mutate':'mutate',
+  'param.reso':'cutoff',
+  'param.sres':'resonance',
+  'param.harm':'harmony',
+  'param.chordrhy':'chop',
+
+  'tip.power':'Toggles the sound on and off. Browsers block audio until you interact with the page, so press this first. The space key works too',
+  'tip.lang':'Switch the display language to Japanese',
+  'tip.recUnsupported':'This browser does not support recording (MediaRecorder)',
+  'tip.shuffle':'Switches to a random mood every 30 seconds',
+  'tip.drift':'Keeps the target values and the root note drifting slowly on their own',
+  'tip.reseed':'Redraws the pitch and gate of all 16 steps',
+  'tip.glide':'Roughly how long it takes to reach the target value. Longer means slower change',
+  'tip.weight':'Lowers the overall register and adds low end',
+  'tip.motion':'LFO depth and rate. Sways level, timbre and detune',
+  'tip.tension':'Bends the chord intervals continuously from consonant to dissonant',
+  'tip.space':'Amount of reverb and delay. Depth, and the length of the tail',
+  'tip.grit':'Roughens the surface of the drone. Distortion, ring modulation and fine dust noise come up together, and the higher it goes the more it sounds like metal being ground down',
+  'tip.level':'Output level',
+  'tip.seq':'Level of the sequencer as a whole. At 0 only the drone is left',
+  'tip.tempo':'Sequence tempo, 55 to 150 BPM. Speeds up and slows down over the glide time',
+  'tip.mutate':'Chance that pitch, gate and octave are rewritten every bar',
+  'tip.reso':'How far the sequencer filter opens (110 to 3200 Hz). Every note sweeps around this point',
+  'tip.sres':'Q of the sequencer filter. The higher it goes, the more pronounced the ring',
+  'tip.harm':'At 0 the drone development, at 1 the chords of the harmony development. In between the two crossfade and overlap',
+  'tip.chordrhy':'Below 0.08 the chords sustain. Raising it chops them finer, and above 0.5 the chords change every 2 bars instead of every 4',
+
+  'preset.stillness.name':'stillness',
+  'preset.stillness.desc':'Nothing but a minimal low drone. Almost no events, almost no movement',
+  'preset.mist.name':'mist',
+  'preset.mist.desc':'Soft mids over a layer of noise. Sustained tones with blurred edges',
+  'preset.ash.name':'ash',
+  'preset.ash.desc':'Centred on the mids and full of grain. A cold, colourless texture',
+  'preset.rust.name':'rust',
+  'preset.rust.desc':'Strong dissonance and metallic resonance. Unstable, as if creaking',
+  'preset.far-storm.name':'far storm',
+  'preset.far-storm.desc':'Deep, heavy bass and wide reverb. Sparse events sounding far away',
+  'preset.glow.name':'glow',
+  'preset.glow.desc':'Bright and consonant, with plenty of shimmer up top',
+  'preset.abyss.name':'abyss',
+  'preset.abyss.desc':'The lowest and slowest. A vast space that barely moves',
+  'preset.pressure.name':'pressure',
+  'preset.pressure.desc':'High density and high tension. A mass that keeps bearing down',
+  'preset.cruise.name':'cruise',
+  'preset.cruise.desc':'A sequence running at a constant speed. The cruising feel of Rubycon or Ricochet',
+  'preset.night-ride.name':'night ride',
+  'preset.night-ride.desc':'A slow, strongly resonant sequence over heavy bass',
+  'preset.flux.name':'flux',
+  'preset.flux.desc':'A fast sequence that mutates constantly. Restless, current-like movement',
+  'preset.abrasion.name':'abrasion',
+  'preset.abrasion.desc':'Grit pushed to the extreme. Distortion and dust grinding the surface away',
+  'preset.stratum.name':'stratum',
+  'preset.stratum.desc':'Sustained chords from the harmony development. The chord changes every 4 bars',
+  'preset.equipoise.name':'equipoise',
+  'preset.equipoise.desc':'The chopped mode of the harmony development. Chords every 2 bars, chopped fine',
+  'preset.disequilibrium.name':'disequilibrium',
+  'preset.disequilibrium.desc':'Drone and harmony developments layered half and half, settling into neither',
+
+  'footer.note':'The white cross is the target, the amber lamp is the current sound. It catches up over the glide time',
+},
+};
+</script>
 
 <script>
 (() => {
 "use strict";
 
 /* ============================================================
+   表示言語
+   ラベルは I18N (上の script ブロック) から t() 経由で引く。
+   保存値が無いときだけブラウザ言語で決める。
+   ============================================================ */
+const LANG_KEY = 'elevator-one:lang';
+let lang = null;
+try{ lang = localStorage.getItem(LANG_KEY); }catch(_){ /* Safari のプライベートモード等 */ }
+if(lang !== 'ja' && lang !== 'en'){
+  const ls = (navigator.languages && navigator.languages.length)
+    ? navigator.languages : [navigator.language || ''];
+  lang = ls.some(l => /^ja\b/i.test(l)) ? 'ja' : 'en';
+}
+const t = key => (I18N[lang] && I18N[lang][key]) ?? I18N.ja[key] ?? key;
+
+/* ============================================================
    パラメータ定義
    ============================================================ */
 const P = {
-  bright:  {label:'明るさ',   def:.40},
-  density: {label:'密度',     def:.30},
-  weight:  {label:'重さ',     def:.55},
-  motion:  {label:'ゆらぎ',   def:.40},
-  tension: {label:'緊張',     def:.25},
-  space:   {label:'空間',     def:.70},
-  grit:    {label:'ざらつき', def:.20},
-  level:   {label:'音量',     def:.70},
-  seq:     {label:'音量',     def:.00},
-  tempo:   {label:'速度',     def:.42},
-  mutate:  {label:'変異',     def:.35},
-  reso:    {label:'カットオフ',def:.55},
-  sres:    {label:'レゾナンス',def:.45},
-  harm:    {label:'和声率',   def:.00},
-  chordrhy:{label:'刻み',     def:.30},
+  bright:  {def:.40},
+  density: {def:.30},
+  weight:  {def:.55},
+  motion:  {def:.40},
+  tension: {def:.25},
+  space:   {def:.70},
+  grit:    {def:.20},
+  level:   {def:.70},
+  seq:     {def:.00},
+  tempo:   {def:.42},
+  mutate:  {def:.35},
+  reso:    {def:.55},
+  sres:    {def:.45},
+  harm:    {def:.00},
+  chordrhy:{def:.30},
 };
 // 面（plane）で操作するのは bright / density。右のスライダーはそれ以外。
 const SLIDERS = ['weight','motion','tension','space','grit','level'];
@@ -351,56 +584,22 @@ const SEQP    = ['seq','tempo','mutate','reso','sres'];
 const HARMP   = ['harm','chordrhy'];
 
 const PRESETS = [
-  {n:'静止', d:'stillness', p:{bright:.14,density:.06,weight:.72,motion:.18,tension:.10,space:.90,grit:.06,seq:0,  tempo:.30,mutate:.20,reso:.30,sres:.30,harm:0,  chordrhy:.20}},
-  {n:'霧',   d:'mist',      p:{bright:.42,density:.26,weight:.44,motion:.46,tension:.22,space:.82,grit:.30,seq:0,  tempo:.35,mutate:.30,reso:.40,sres:.35,harm:0,  chordrhy:.20}},
-  {n:'灰',   d:'ash',       p:{bright:.35,density:.34,weight:.58,motion:.38,tension:.46,space:.60,grit:.58,seq:.18,tempo:.30,mutate:.45,reso:.45,sres:.50,harm:0,  chordrhy:.20}},
-  {n:'錆',   d:'rust',      p:{bright:.52,density:.30,weight:.50,motion:.28,tension:.78,space:.52,grit:.86,seq:.22,tempo:.26,mutate:.60,reso:.55,sres:.72,harm:0,  chordrhy:.20}},
-  {n:'遠雷', d:'far storm', p:{bright:.22,density:.18,weight:.86,motion:.34,tension:.40,space:.88,grit:.42,seq:0,  tempo:.30,mutate:.30,reso:.40,sres:.40,harm:0,  chordrhy:.20}},
-  {n:'白光', d:'glow',      p:{bright:.86,density:.48,weight:.30,motion:.52,tension:.12,space:.78,grit:.14,seq:.30,tempo:.55,mutate:.25,reso:.70,sres:.40,harm:0,  chordrhy:.20}},
-  {n:'深海', d:'abyss',     p:{bright:.10,density:.12,weight:.94,motion:.22,tension:.30,space:.94,grit:.18,seq:0,  tempo:.22,mutate:.15,reso:.25,sres:.28,harm:0,  chordrhy:.20}},
-  {n:'圧',   d:'pressure',  p:{bright:.46,density:.62,weight:.78,motion:.60,tension:.66,space:.44,grit:.74,seq:.45,tempo:.62,mutate:.55,reso:.58,sres:.66,harm:0,  chordrhy:.20}},
-  {n:'巡航', d:'cruise',    p:{bright:.56,density:.34,weight:.62,motion:.40,tension:.18,space:.74,grit:.22,seq:.82,tempo:.52,mutate:.30,reso:.55,sres:.62,harm:0,  chordrhy:.20}},
-  {n:'夜行', d:'night ride',p:{bright:.38,density:.24,weight:.80,motion:.34,tension:.30,space:.80,grit:.34,seq:.70,tempo:.38,mutate:.42,reso:.42,sres:.76,harm:0,  chordrhy:.20}},
-  {n:'電磁', d:'flux',      p:{bright:.72,density:.44,weight:.46,motion:.66,tension:.52,space:.62,grit:.60,seq:.90,tempo:.74,mutate:.66,reso:.72,sres:.84,harm:0,  chordrhy:.20}},
-  {n:'研磨', d:'abrasion',  p:{bright:.48,density:.40,weight:.66,motion:.30,tension:.58,space:.46,grit:.94,seq:.38,tempo:.44,mutate:.50,reso:.50,sres:.58,harm:0,  chordrhy:.20}},
-  {n:'大気', d:'stratum',   p:{bright:.62,density:.30,weight:.48,motion:.36,tension:.16,space:.80,grit:.10,seq:.52,tempo:.48,mutate:.22,reso:.58,sres:.56,harm:.88,chordrhy:.04}},
-  {n:'均衡', d:'equipoise', p:{bright:.70,density:.44,weight:.56,motion:.42,tension:.22,space:.66,grit:.18,seq:.74,tempo:.62,mutate:.34,reso:.64,sres:.68,harm:1,  chordrhy:.78}},
-  {n:'失調', d:'disequilibrium', p:{bright:.50,density:.30,weight:.66,motion:.44,tension:.28,space:.84,grit:.30,seq:.40,tempo:.44,mutate:.30,reso:.50,sres:.50,harm:.50,chordrhy:.34}},
+  {id:'stillness',       p:{bright:.14,density:.06,weight:.72,motion:.18,tension:.10,space:.90,grit:.06,seq:0,  tempo:.30,mutate:.20,reso:.30,sres:.30,harm:0,  chordrhy:.20}},
+  {id:'mist',            p:{bright:.42,density:.26,weight:.44,motion:.46,tension:.22,space:.82,grit:.30,seq:0,  tempo:.35,mutate:.30,reso:.40,sres:.35,harm:0,  chordrhy:.20}},
+  {id:'ash',             p:{bright:.35,density:.34,weight:.58,motion:.38,tension:.46,space:.60,grit:.58,seq:.18,tempo:.30,mutate:.45,reso:.45,sres:.50,harm:0,  chordrhy:.20}},
+  {id:'rust',            p:{bright:.52,density:.30,weight:.50,motion:.28,tension:.78,space:.52,grit:.86,seq:.22,tempo:.26,mutate:.60,reso:.55,sres:.72,harm:0,  chordrhy:.20}},
+  {id:'far-storm',       p:{bright:.22,density:.18,weight:.86,motion:.34,tension:.40,space:.88,grit:.42,seq:0,  tempo:.30,mutate:.30,reso:.40,sres:.40,harm:0,  chordrhy:.20}},
+  {id:'glow',            p:{bright:.86,density:.48,weight:.30,motion:.52,tension:.12,space:.78,grit:.14,seq:.30,tempo:.55,mutate:.25,reso:.70,sres:.40,harm:0,  chordrhy:.20}},
+  {id:'abyss',           p:{bright:.10,density:.12,weight:.94,motion:.22,tension:.30,space:.94,grit:.18,seq:0,  tempo:.22,mutate:.15,reso:.25,sres:.28,harm:0,  chordrhy:.20}},
+  {id:'pressure',        p:{bright:.46,density:.62,weight:.78,motion:.60,tension:.66,space:.44,grit:.74,seq:.45,tempo:.62,mutate:.55,reso:.58,sres:.66,harm:0,  chordrhy:.20}},
+  {id:'cruise',          p:{bright:.56,density:.34,weight:.62,motion:.40,tension:.18,space:.74,grit:.22,seq:.82,tempo:.52,mutate:.30,reso:.55,sres:.62,harm:0,  chordrhy:.20}},
+  {id:'night-ride',      p:{bright:.38,density:.24,weight:.80,motion:.34,tension:.30,space:.80,grit:.34,seq:.70,tempo:.38,mutate:.42,reso:.42,sres:.76,harm:0,  chordrhy:.20}},
+  {id:'flux',            p:{bright:.72,density:.44,weight:.46,motion:.66,tension:.52,space:.62,grit:.60,seq:.90,tempo:.74,mutate:.66,reso:.72,sres:.84,harm:0,  chordrhy:.20}},
+  {id:'abrasion',        p:{bright:.48,density:.40,weight:.66,motion:.30,tension:.58,space:.46,grit:.94,seq:.38,tempo:.44,mutate:.50,reso:.50,sres:.58,harm:0,  chordrhy:.20}},
+  {id:'stratum',         p:{bright:.62,density:.30,weight:.48,motion:.36,tension:.16,space:.80,grit:.10,seq:.52,tempo:.48,mutate:.22,reso:.58,sres:.56,harm:.88,chordrhy:.04}},
+  {id:'equipoise',       p:{bright:.70,density:.44,weight:.56,motion:.42,tension:.22,space:.66,grit:.18,seq:.74,tempo:.62,mutate:.34,reso:.64,sres:.68,harm:1,  chordrhy:.78}},
+  {id:'disequilibrium',  p:{bright:.50,density:.30,weight:.66,motion:.44,tension:.28,space:.84,grit:.30,seq:.40,tempo:.44,mutate:.30,reso:.50,sres:.50,harm:.50,chordrhy:.34}},
 ];
-
-const PRESET_TIP = {
-  '静止':'最低限の低いドローンだけ。出来事はほとんど起きず、ほぼ動かない',
-  '霧':'柔らかい中域とノイズ層。輪郭のぼやけた持続音',
-  '灰':'中域中心で粒子が多い。冷たく無彩色な質感',
-  '錆':'不協和と金属的共鳴が強い。軋むように不安定',
-  '遠雷':'深く重い低音と広い残響。遠くでまばらに鳴る',
-  '白光':'明るく協和的。高域のきらめきが多い',
-  '深海':'最も低く遅い。ほとんど動かない巨大な空間',
-  '圧':'密度も緊張も高く、押し寄せるような塊',
-  '巡航':'一定速度で走るシーケンス。RubyconやRicochet的な巡航感',
-  '夜行':'低速で共振の強いシーケンスと重い低音',
-  '電磁':'速く変異の多いシーケンス。落ち着かない電流的な動き',
-  '研磨':'ざらつきを極端まで上げた状態。歪みと粉塵で表面が削れていく',
-  '大気':'和声展開の持続コード。4小節ごとに和音が切り替わる',
-  '均衡':'和声展開の刻みモード。2小節ごとの和音と細かいコード刻み',
-  '失調':'ドローン展開と和声展開を半々で重ね、どちらにも定まらない状態',
-};
-
-const TIPS = {
-  weight: '全体の音域を下げ、低音の量を増やす',
-  motion: 'LFOの深さと速さ。音量・音色・デチューンの揺れ',
-  tension:'和音の音程を協和から不協和へ連続的に変える',
-  space:  'リバーブとディレイの量。奥行きと余韻の長さ',
-  grit:   'ドローンの表面を荒らす。歪み・リングモジュレーション・微細な粉塵ノイズが増え、上げるほど金属を削るような粗いテクスチャになる',
-  level:  '出力レベル',
-  seq:    'シーケンサ全体の音量。0にするとドローンだけになる',
-  tempo:  'シーケンスのテンポ。55〜150 BPM。推移時間をかけて加減速する',
-  mutate: '1小節ごとに音程・ゲート・オクターブが書き換わる確率',
-  reso:   'シーケンス用フィルターの開き具合（110〜3200Hz）。1音ごとにここを基準に開閉する',
-  sres:   'シーケンス用フィルターのQ。上げるほど癖の強い鳴りになる',
-  harm:   '0でドローン展開、1で和声展開のコード。中間では両者がクロスフェードして重なる',
-  chordrhy:'0.08未満でコードは持続音。上げると刻みが細かくなり、0.5以上ではコードの切り替わりが4小節から2小節ごとになる',
-};
 
 const target  = {}, current = {};
 for (const k in P){ target[k]=P[k].def; current[k]=P[k].def; }
@@ -964,8 +1163,10 @@ function applyPreset(idx,btn){
 PRESETS.forEach((pr,i)=>{
   const b=document.createElement('button');
   b.className='preset'; b.setAttribute('aria-pressed','false');
-  b.dataset.tip=PRESET_TIP[pr.n]||'';
-  b.innerHTML=`${pr.n}<small>${pr.d}</small>`;
+  // ラベルは applyI18n() が data-i18n を見て流し込む。
+  // <small> の英語名は言語に依らず固定で、en のときだけCSSで隠す (見出しと同じ文字列になるため)
+  b.dataset.i18nTip=`preset.${pr.id}.desc`;
+  b.innerHTML=`<span data-i18n="preset.${pr.id}.name"></span><small>${I18N.en[`preset.${pr.id}.name`]}</small>`;
   b.addEventListener('click',()=>{ applyPreset(i,b); stopShuffle(); });
   presetsEl.appendChild(b);
 });
@@ -997,7 +1198,7 @@ const seqEl=document.getElementById('seqparams');
 const inputs={};
 function makeSlider(key,host){
   const wrap=document.createElement('div'); wrap.className='param';
-  wrap.innerHTML=`<label for="s_${key}"><span data-tip="${TIPS[key]||''}">${P[key].label}</span><span class="val" id="v_${key}"></span></label>`;
+  wrap.innerHTML=`<label for="s_${key}"><span data-i18n="param.${key}" data-i18n-tip="tip.${key}"></span><span class="val" id="v_${key}"></span></label>`;
   const r=document.createElement('input');
   r.type='range'; r.min=0; r.max=1; r.step=.005; r.value=target[key]; r.id='s_'+key;
   r.addEventListener('input',()=>{ target[key]=parseFloat(r.value); updateVal(key); clearPresetHighlight(); stopShuffle(); });
@@ -1010,7 +1211,7 @@ for(const key of HARMP)   makeSlider(key,document.getElementById('harmparams'));
 // ゆらぎ時間
 {
   const wrap=document.createElement('div'); wrap.className='param';
-  wrap.innerHTML=`<label for="s_glide"><span data-tip="目標値に追いつくまでのおおよその時間。長いほど変化がゆっくりになる">推移時間</span><span class="val" id="v_glide">15s</span></label>`;
+  wrap.innerHTML=`<label for="s_glide"><span data-i18n="param.glide" data-i18n-tip="tip.glide"></span><span class="val" id="v_glide">15s</span></label>`;
   const r=document.createElement('input');
   r.type='range'; r.min=5; r.max=300; r.step=1; r.value=15; r.id='s_glide';
   r.addEventListener('input',()=>{ glide=parseFloat(r.value); document.getElementById('v_glide').textContent=glide+'s'; });
@@ -1190,7 +1391,7 @@ const powerBtn=document.getElementById('power');
 const powerState=powerBtn.querySelector('.tstate');
 const recBtn=document.getElementById('rec');
 
-// 発音トグルの見た目を状態に同期 (ラベルは「発音」固定)
+// 発音トグルの見た目を状態に同期 (ラベルは「発音」固定。on/off は言語非依存)
 function setPowerUI(on){
   powerBtn.dataset.on=on?'1':'0';
   powerBtn.setAttribute('aria-pressed',on?'true':'false');
@@ -1205,9 +1406,16 @@ const REC_MIME=(()=>{
     try{ return MediaRecorder.isTypeSupported(m); }catch(_){ return false; }
   })||null;
 })();
-if(!REC_MIME){
-  recBtn.dataset.tip='この端末のブラウザは録音 (MediaRecorder) に対応していない';
-  recBtn.textContent='録音不可';
+
+// 録音ボタンだけは状態でラベルが変わるので data-i18n では扱えない
+function updateRecLabel(){
+  if(!REC_MIME){
+    recBtn.textContent=t('transport.recUnsupported');
+    recBtn.dataset.tip=t('tip.recUnsupported');
+    return;
+  }
+  const rec = recorder && recorder.state==='recording';
+  recBtn.textContent = t(rec ? 'transport.recStop' : 'transport.rec');
 }
 
 powerBtn.addEventListener('click',async()=>{
@@ -1244,10 +1452,10 @@ recBtn.addEventListener('click',()=>{
       a.href=URL.createObjectURL(blob);
       a.download='elevator-one-'+new Date().toISOString().replace(/[:.]/g,'-')+(REC_MIME==='audio/mp4'?'.m4a':'.webm');
       a.click();
-      recBtn.dataset.on='0'; recBtn.textContent='録音';
+      recBtn.dataset.on='0'; updateRecLabel();
     };
     recorder.start();
-    recBtn.dataset.on='1'; recBtn.textContent='停止 / 保存';
+    recBtn.dataset.on='1'; updateRecLabel();
   }else{
     stopRec();
   }
@@ -1278,12 +1486,34 @@ function showTip(el){
   tipEl.style.left=x+'px'; tipEl.style.top=y+'px';
 }
 function hideTip(){ tipHost=null; tipEl.classList.remove('on'); }
-const nearest=t=>(t && t.closest) ? t.closest('[data-tip]') : null;
+// 引数名は t() (翻訳) と紛れないように node
+const nearest=node=>(node && node.closest) ? node.closest('[data-tip]') : null;
 document.addEventListener('mouseover',e=>{ const el=nearest(e.target); if(el&&el!==tipHost) showTip(el); });
 document.addEventListener('mouseout', e=>{ const el=nearest(e.target); if(el&&el===tipHost) hideTip(); });
 document.addEventListener('focusin',  e=>{ const el=nearest(e.target); if(el) showTip(el); });
 document.addEventListener('focusout', hideTip);
 window.addEventListener('blur', hideTip);
+
+/* ---- 表示言語の適用 ---- */
+// 静的HTMLも動的生成された要素も、data-i18n* 属性さえ付いていればここで一括更新される。
+// 言語切替で作り直す必要のあるDOMは無い (プリセットの <small> はCSSで出し分け)。
+const langBtn=document.getElementById('lang');
+function applyI18n(){
+  document.documentElement.lang=lang;
+  for(const el of document.querySelectorAll('[data-i18n]'))      el.textContent=t(el.dataset.i18n);
+  for(const el of document.querySelectorAll('[data-i18n-tip]'))  el.dataset.tip=t(el.dataset.i18nTip);
+  for(const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label',t(el.dataset.i18nAria));
+  langBtn.textContent=lang.toUpperCase();
+  updateRecLabel();
+  hideTip();   // 表示中のツールチップが旧言語のまま残らないように
+}
+langBtn.addEventListener('click',()=>{
+  lang = lang==='ja' ? 'en' : 'ja';
+  try{ localStorage.setItem(LANG_KEY,lang); }catch(_){ /* 保存できなくても切り替えはできる */ }
+  applyI18n();
+});
+// スクリプトは </body> 直前で同期実行されるため、初回描画前に反映される
+applyI18n();
 
 window.addEventListener('keydown',e=>{
   if(e.code==='Space'&&e.target===document.body){ e.preventDefault(); powerBtn.click(); }

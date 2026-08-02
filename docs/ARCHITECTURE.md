@@ -9,9 +9,11 @@
 
 1. `<style>` — CSS変数（`--sea-*` が背景色、他は固定パレット）
 2. `<body>` — ヘッダー / 3カラムのmain（プリセット・XYパッド・パラメータ）/ フッター
-3. `<script>` 内部、おおよそ上から下へ:
+3. `<script>` その1 — メッセージカタログ `I18N`（UI文字列はすべてここ。後述）
+4. `<script>` その2（アプリ本体、IIFE）内部、おおよそ上から下へ:
+   - 表示言語の決定（`lang`, `t()`）
    - パラメータ定義（`P`, `SLIDERS`, `SEQP`, `HARMP`）
-   - プリセット定義（`PRESETS`, `PRESET_TIP`, `TIPS`）
+   - プリセット定義（`PRESETS`）
    - `target` / `current`（後述）
    - オーディオグラフ構築（`build()`）
    - `apply()` — current値をオーディオグラフに反映
@@ -22,6 +24,7 @@
    - UI生成（プリセットボタン、スライダー、シャッフル、ツールチップ）
    - XYパッドの描画ループ（`draw`, マリンスノー, 背景色 `seaColors`）
    - 起動/停止/録音（`startEngine`, `stopEngine`, 自動起動）
+   - 表示言語の適用（`applyI18n()`）— DOMが出揃ってから呼ぶので最後
 
 ## パラメータの流れ：target → current → オーディオグラフ
 
@@ -131,6 +134,38 @@ droneBus → texIn(gain) → shaper(WaveShaper) → texHP → texLP → ringGate
 - ツールチップは `data-tip` 属性 + 単一の `#tip` 要素を使い回すグローバル委譲方式
   （`mouseover`/`mouseout`/`focusin`/`focusout` をdocumentに1回だけ登録）。
   新しい操作要素にツールチップを足したいときは `data-tip="説明文"` を属性に足すだけでよい
+
+## 表示言語（ja / en）
+
+UI文字列は直書きせず、アプリ本体のIIFEの**外**にあるメッセージカタログ `I18N` に集めてある。
+IIFEの外に出しているのは、データ塊を本体と分けて読めるようにするためと、テストから
+`page.evaluate(() => Object.keys(I18N.ja))` でキー集合を検査できるようにするため。
+classic script のトップレベル `const` はグローバルレキシカルスコープに入るだけなので `window` は汚れない。
+
+```
+I18N.ja / I18N.en  ──t(key)──▶  applyI18n()  ──▶  [data-i18n]      textContent
+      ▲                              │            [data-i18n-tip]  data-tip 属性
+      │                              │            [data-i18n-aria] aria-label 属性
+   lang ('ja' | 'en')                └──────────▶ #lang のラベル / 録音ボタン / hideTip()
+```
+
+- **キーの命名** — `transport.*` / `tab.*` / `section.*` / `pad.*` / `param.<パラメータ名>` /
+  `tip.<パラメータ名 or 要素名>` / `preset.<id>.name` / `preset.<id>.desc` / `footer.*`。
+  `param.*` と `tip.*` のキーは `P` のキーとそのまま対応する（`makeSlider()` が
+  `param.${key}` / `tip.${key}` を組み立てるので、新しいスライダーはカタログに2件足すだけで表示できる）
+- **初期言語** — `localStorage['elevator-one:lang']` に保存値があればそれ、無ければ
+  `navigator.languages` に `ja` が含まれるかで決める。`localStorage` が使えない環境（Safari の
+  プライベートモード等）でも例外で落ちないよう read/write とも `try` で包んである
+- **言語切替で作り直すDOMは無い** — スライダーもプリセットも生成時に `data-i18n*` を付けてあるので、
+  `applyI18n()` がDOMを1回走査すれば全部追従する。プリセットの `<small>`（英語名）だけは
+  en では見出しと同じ文字列になるため `html[lang="en"] .preset small{display:none}` で隠している
+- **例外は録音ボタンだけ** — 「録音 / 停止 / 保存 / 録音不可」は状態でラベルが変わるので
+  `updateRecLabel()` が持つ。`applyI18n()` から呼ばれる
+- 数値と単位（`BPM`, `15s`, `Hz`）と発音ボタンの `on` / `off` は言語非依存なのでカタログに入れない
+
+**文字列を足すとき**は (1) `I18N.ja` と `I18N.en` の両方に同じキーで足す、(2) 要素に
+`data-i18n`（または `-tip` / `-aria`）を付ける、の2手順だけ。片方の言語に入れ忘れると
+`tests/i18n.spec.js` のキー集合テストが落ちる。
 
 ## 自動起動の仕組み
 
