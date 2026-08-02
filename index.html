@@ -153,7 +153,8 @@
   }
   .overlay b{
     display:block;font-weight:500;
-    font-size:clamp(2.2rem,9.4vh,5.6rem);line-height:1.0;
+    /* 元は clamp(2.2rem,9.4vh,5.6rem)。主張が強すぎたので75%に落としてある */
+    font-size:clamp(1.65rem,7.05vh,4.2rem);line-height:1.0;
     letter-spacing:.005em;font-variant-numeric:tabular-nums;
     color:rgba(233,242,246,.26);
   }
@@ -273,7 +274,7 @@
 <!-- 狭幅時のみ表示。3セクションをタブで切り替えて1画面に収める -->
 <nav class="tabs" id="tabs">
   <button class="tab" data-tab="mood" aria-selected="false" data-i18n="tab.mood">雰囲気</button>
-  <button class="tab" data-tab="pad" aria-selected="true" data-i18n="tab.pad">パッド</button>
+  <button class="tab" data-tab="pad" aria-selected="true" data-i18n="tab.pad">XYパッド</button>
   <button class="tab" data-tab="sound" aria-selected="false" data-i18n="tab.sound">音作り</button>
 </nav>
 
@@ -346,7 +347,7 @@ ja: {
   'transport.lang':'表示言語を切り替える',
 
   'tab.mood':'雰囲気',
-  'tab.pad':'パッド',
+  'tab.pad':'XYパッド',
   'tab.sound':'音作り',
 
   'section.mood':'雰囲気',
@@ -445,7 +446,7 @@ en: {
   'transport.lang':'Switch display language',
 
   'tab.mood':'mood',
-  'tab.pad':'pad',
+  'tab.pad':'XY pad',
   'tab.sound':'sound',
 
   'section.mood':'mood',
