@@ -20,8 +20,13 @@ npm test
 | --- | --- | --- |
 | `audio-chromium` | 音が鳴るか | `tests/audio.spec.js` |
 | `desktop-chromium` | macOS 相当 (1440x900) | `tests/interaction.spec.js` |
-| `mobile-webkit` | iOS 相当 (iPhone 14 / WebKit) | `tests/interaction.spec.js` |
+| `mobile-webkit` | iOS 相当 (iPhone 14 / WebKit、英語表示) | `tests/interaction.spec.js` |
 | `tablet-webkit` | iPadOS 相当 (iPad gen 7 / WebKit) | `tests/interaction.spec.js` |
+| `i18n-chromium` | 表示言語の切り替え | `tests/i18n.spec.js` |
+
+表示言語はブラウザ言語で決まるため、既定の `locale` を `ja-JP` に固定してある（CI環境の既定に
+引きずられないように）。`mobile-webkit` だけは `en-US`。英語は日本語より文字列が長く、ヘッダーが
+折り返す危険が一番高いのが iPhone 幅なので、狭幅のレイアウト検証は英語で走らせている。
 
 WebKit は iOS/iPadOS Safari と同じエンジンなので、デバイスエミュレーションで「iOS で操作できそうか」を近似している。音の検証はヘッドレス WebKit だと `AudioContext` の resume が不安定なため Chromium だけで行う。
 
@@ -35,6 +40,9 @@ WebKit は iOS/iPadOS Safari と同じエンジンなので、デバイスエミ
 
 - 音の性質に関わるもの (新しい音源、エフェクト、シーケンサの挙動) → `tests/audio.spec.js` に追加。プローブの波形を見る
 - 画面と操作に関わるもの → `tests/interaction.spec.js` に追加。全 project で走るので、狭幅だけ・デスクトップだけの検証は `test.skip(({ viewport }) => ...)` で振り分ける
+- UI文字列に関わるもの → `tests/i18n.spec.js` に追加。カタログのキー集合テストと、DOMの
+  `data-i18n*` がカタログに存在するかのテストがあるので、文字列を足しただけで訳し忘れや
+  属性のタイポは落ちる
 - 新しい環境を足したいとき (例: Android Chrome) → `playwright.config.js` の `projects` に追加する。`testMatch` でどの spec を走らせるか決まる
 
 数値の閾値を置くときは実測値をコメントに残しておくと、後から緩め過ぎ・厳し過ぎを判断しやすい。
