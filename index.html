@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ELEVATOR ONE</title>
+<style>
+  :root{
+    --sea-top:#1D2A33;
+    --sea-mid:#16222C;
+    --sea-bot:#0E1720;
+    --panel:rgba(255,255,255,.055);
+    --panel-hi:rgba(255,255,255,.11);
+    --line:rgba(226,236,242,.19);
+    --ink:#E7E2CE;
+    --dim:rgba(214,226,232,.62);
+    --amber:#D8A340;
+    --oxide:#AB5A38;
+    --disp:'Futura','Avenir Next Condensed','Helvetica Neue',sans-serif;
+    --data:'Menlo','Monaco',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--sea-mid);
+    background-image:linear-gradient(180deg,var(--sea-top) 0%,var(--sea-mid) var(--sea-split,52%),var(--sea-bot) 100%);
+    color:var(--ink);
+    font-family:var(--disp);
+    -webkit-font-smoothing:antialiased;
+    display:flex;flex-direction:column;
+    height:100dvh;overflow:hidden;
+  }
+  button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+  /* ---- header ---- */
+  header{
+    display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;
+    padding:.8rem 1.2rem .7rem;
+    background:rgba(0,0,0,.21);
+    border-bottom:1px solid var(--line);
+  }
+  .mark{
+    font-size:.95rem;letter-spacing:.42em;text-transform:uppercase;
+  }
+  .sub{font-size:.68rem;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
+  .transport{margin-left:auto;display:flex;gap:.55rem;align-items:center}
+  .tbtn{
+    border:1px solid var(--line);
+    padding:.5rem 1.1rem;
+    font-size:.7rem;letter-spacing:.28em;text-transform:uppercase;
+    background:var(--panel);
+    transition:background .18s,border-color .18s,color .18s;
+  }
+  .tbtn:hover{background:var(--panel-hi)}
+  .tbtn[data-on="1"]{background:var(--amber);color:#101A22;border-color:var(--amber)}
+  .tbtn.rec[data-on="1"]{background:var(--oxide);color:#F4EFE0;border-color:var(--oxide)}
+  .tbtn[disabled]{opacity:.35;cursor:not-allowed}
+
+  /* ---- main grid ---- */
+  main{
+    flex:1;min-height:0;display:grid;
+    grid-template-columns:minmax(128px,166px) minmax(0,1fr) minmax(184px,222px);
+    gap:1px;background:var(--line);
+    border-bottom:1px solid var(--line);
+  }
+  section{
+    background:rgba(0,0,0,.21);padding:.9rem 1rem 1rem;
+    min-height:0;min-width:0;overflow-y:auto;overflow-x:hidden;
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent;
+  }
+  section::-webkit-scrollbar{width:7px}
+  section::-webkit-scrollbar-thumb{background:var(--line)}
+  section::-webkit-scrollbar-track{background:transparent}
+  .eyebrow{
+    font-size:.6rem;letter-spacing:.3em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:.85rem;
+  }
+
+  /* ---- presets ---- */
+  .preset{
+    display:block;width:100%;text-align:left;
+    padding:.36rem .6rem;margin-bottom:.14rem;
+    font-size:.94rem;letter-spacing:.14em;
+    border-left:2px solid transparent;color:var(--dim);
+    transition:color .16s,background .16s,border-color .16s;
+  }
+  .preset:hover{color:var(--ink);background:var(--panel)}
+  .preset[aria-pressed="true"]{color:var(--amber);border-left-color:var(--amber);background:var(--panel)}
+  .preset small{display:block;font-size:.58rem;letter-spacing:.12em;color:var(--dim);margin-top:.15rem}
+
+  /* ---- plane ---- */
+  .plane-wrap{display:flex;flex-direction:column;height:100%;overflow:hidden}
+  .plane{
+    position:relative;flex:1;min-height:96px;
+    border:1px solid var(--line);background:rgba(0,0,0,.30);
+    touch-action:none;cursor:crosshair;
+  }
+  .plane canvas{display:block;width:100%;height:100%}
+  .axis{
+    display:flex;justify-content:space-between;
+    font-size:.58rem;letter-spacing:.22em;color:var(--dim);
+    text-transform:uppercase;margin-top:.5rem;
+  }
+  .plane-outer{position:relative;flex:1;min-height:0;display:flex;gap:.5rem}
+  .axis-v{
+    display:flex;flex-direction:column;justify-content:space-between;align-items:center;
+    width:1.05rem;flex:none;
+    font-size:.58rem;letter-spacing:.22em;color:var(--dim);
+  }
+  .axis-v span{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:.1em}
+  .axis-v .mid{color:var(--ink)}
+  .plane{flex:1}
+
+  /* ---- pad overlay readout ---- */
+  .overlay{
+    position:absolute;inset:0;pointer-events:none;overflow:hidden;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;
+    gap:clamp(0rem,.7vh,.5rem);padding:.4rem;text-align:center;
+    font-family:'Helvetica Neue','Avenir Next','Hiragino Sans',system-ui,sans-serif;
+    text-shadow:0 1px 16px rgba(0,0,0,.34);
+  }
+  .overlay .k{
+    display:block;font-size:clamp(.6rem,1.5vh,.82rem);letter-spacing:.34em;
+    color:rgba(233,242,246,.34);margin-bottom:.02em;
+  }
+  .overlay b{
+    display:block;font-weight:500;
+    font-size:clamp(2.2rem,9.4vh,5.6rem);line-height:1.0;
+    letter-spacing:.005em;font-variant-numeric:tabular-nums;
+    color:rgba(233,242,246,.26);
+  }
+
+  /* ---- tooltip ---- */
+  #tip{
+    position:fixed;z-index:60;max-width:15rem;pointer-events:none;
+    background:#16222C;border:1px solid var(--line);
+    color:var(--ink);font-size:.68rem;line-height:1.6;letter-spacing:.05em;
+    padding:.45rem .65rem;opacity:0;transition:opacity .12s;
+  }
+  #tip.on{opacity:1}
+  [data-tip]{cursor:help}
+  .preset[data-tip]{cursor:pointer}
+
+  /* ---- params ---- */
+  .param{margin-bottom:.62rem}
+  .param label{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-size:.72rem;letter-spacing:.16em;margin-bottom:.18rem;
+  }
+  .param .val{font-family:var(--data);font-size:.65rem;color:var(--amber);letter-spacing:.04em}
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;width:100%;height:14px;background:transparent;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:1px;background:var(--line);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:9px;height:14px;margin-top:-7px;
+    background:var(--ink);border:none;border-radius:0;
+  }
+  input[type=range]:hover::-webkit-slider-thumb{background:var(--amber)}
+  input[type=range]::-moz-range-track{height:1px;background:var(--line)}
+  input[type=range]::-moz-range-thumb{width:9px;height:14px;background:var(--ink);border:none;border-radius:0}
+
+  .toggle{
+    display:flex;align-items:center;gap:.5rem;
+    font-size:.72rem;letter-spacing:.16em;
+    border:1px solid var(--line);padding:.45rem .6rem;width:100%;
+    justify-content:space-between;background:var(--panel);
+  }
+  .lamp{width:8px;height:8px;border-radius:50%;background:var(--line);transition:background .2s,box-shadow .2s}
+  .toggle[aria-pressed="true"] .lamp{background:var(--amber);box-shadow:0 0 8px var(--amber)}
+
+  /* ---- step strip ---- */
+  .steps{
+    display:grid;grid-template-columns:repeat(16,1fr);gap:2px;
+    height:38px;align-items:end;margin-top:.65rem;
+    border-bottom:1px solid var(--line);padding-bottom:2px;
+  }
+  .steps i{display:block;background:var(--line);height:14%;transition:background .1s,box-shadow .1s}
+  .steps i.on{background:#707C5D}
+  .steps i.now{background:var(--amber);box-shadow:0 0 7px rgba(216,163,64,.65)}
+  .seqhead{
+    display:flex;justify-content:space-between;align-items:baseline;
+    margin-top:1.4rem;
+  }
+
+  /* ---- readout ---- */
+  footer{
+    padding:.5rem 1.2rem;font-family:var(--data);
+    background:rgba(0,0,0,.21);
+    font-size:.62rem;letter-spacing:.02em;color:var(--dim);
+    display:flex;gap:1.4rem;flex-wrap:wrap;align-items:center;flex:none;
+  }
+  footer b{color:var(--ink);font-weight:400}
+  .note{margin-left:auto;color:var(--dim)}
+
+  /* 幅が足りないときは1列に積み、ページ自体をスクロールさせる */
+  @media (max-width:900px){
+    body{height:auto;min-height:100dvh;overflow:auto}
+    main{grid-template-columns:1fr}
+    section{overflow:visible}
+    .plane-wrap{overflow:visible}
+    .plane{min-height:min(52dvh,300px)}
+    .overlay{font-size:1rem;padding:0 1rem}
+    .transport{width:100%;margin-left:0}
+  }
+  /* 高さが足りないときは全体をさらに詰める */
+  @media (min-width:901px) and (max-height:720px){
+    .preset small{display:none}
+    .preset{padding:.28rem .6rem}
+    .param{margin-bottom:.44rem}
+    .steps{height:26px;margin-top:.45rem}
+    .overlay{font-size:1.05rem;line-height:1.6}
+    .eyebrow{margin-bottom:.55rem}
+    .seqhead{margin-top:.9rem}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="mark">Elevator One</div>
+  <div class="sub">generative ambient / minimal / drone</div>
+  <div class="transport">
+    <button class="tbtn" id="power" data-on="0">起動</button>
+    <button class="tbtn rec" id="rec" data-on="0" disabled>録音</button>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div class="eyebrow">雰囲気</div>
+    <div id="presets"></div>
+  </section>
+
+  <section class="plane-wrap">
+    <div class="eyebrow">XYパッド — ドラッグで目標を移動</div>
+    <div class="plane-outer">
+      <div class="axis-v">
+        <span>疎</span><span class="mid">密度</span><span>密</span>
+      </div>
+      <div class="plane" id="plane">
+        <canvas id="cv"></canvas>
+        <div class="overlay">
+          <div><span class="k">ルート音</span><b id="ro">—</b></div>
+          <div><span class="k">明るさ</span><b id="rb">—</b></div>
+          <div><span class="k">密度</span><b id="rd">—</b></div>
+          <div><span class="k">緊張</span><b id="rt">—</b></div>
+        </div>
+      </div>
+    </div>
+    <div class="axis"><span>暗</span><span style="color:var(--ink)">明るさ</span><span>明</span></div>
+    <div class="steps" id="steps"></div>
+    <div class="axis"><span>16ステップ列</span><span id="bpmlab">—</span></div>
+  </section>
+
+  <section>
+    <div class="eyebrow">パラメータ</div>
+    <div id="params"></div>
+    <button class="toggle" id="drift" aria-pressed="true" data-tip="放置しても目標値とルート音がゆっくり自然に揺れ続ける">
+      <span>自動漂流</span><span class="lamp"></span>
+    </button>
+    <div class="seqhead"><div class="eyebrow" style="margin:0">シーケンサ</div></div>
+    <div id="seqparams" style="margin-top:.8rem"></div>
+    <button class="toggle" id="reseed" aria-pressed="false" style="margin-top:.2rem" data-tip="16ステップの音程とゲートをすべて引き直す">
+      <span>シーケンス再生成</span><span class="lamp"></span>
+    </button>
+    <div class="seqhead"><div class="eyebrow" style="margin:0">展開</div></div>
+    <div id="harmparams" style="margin-top:.8rem"></div>
+  </section>
+</main>
+
+<footer>
+  <span class="note">白い十字が目標、琥珀のランプが現在の音。推移時間をかけて追いつきます</span>
+</footer>
+
+<div id="tip" role="tooltip"></div>
+
+<script>
+(() => {
+"use strict";
+
+/* ============================================================
+   パラメータ定義
+   ============================================================ */
+const P = {
+  bright:  {label:'明るさ',   def:.40},
+  density: {label:'密度',     def:.30},
+  weight:  {label:'重さ',     def:.55},
+  motion:  {label:'ゆらぎ',   def:.40},
+  tension: {label:'緊張',     def:.25},
+  space:   {label:'空間',     def:.70},
+  grit:    {label:'ざらつき', def:.20},
+  level:   {label:'音量',     def:.70},
+  seq:     {label:'音量',     def:.00},
+  tempo:   {label:'速度',     def:.42},
+  mutate:  {label:'変異',     def:.35},
+  reso:    {label:'カットオフ',def:.55},
+  sres:    {label:'レゾナンス',def:.45},
+  harm:    {label:'和声率',   def:.00},
+  chordrhy:{label:'刻み',     def:.30},
+};
+// 面（plane）で操作するのは bright / density。右のスライダーはそれ以外。
+const SLIDERS = ['weight','motion','tension','space','grit','level'];
+const SEQP    = ['seq','tempo','mutate','reso','sres'];
+const HARMP   = ['harm','chordrhy'];
+
+const PRESETS = [
+  {n:'静止', d:'stillness', p:{bright:.14,density:.06,weight:.72,motion:.18,tension:.10,space:.90,grit:.06,seq:0,  tempo:.30,mutate:.20,reso:.30,sres:.30,harm:0,  chordrhy:.20}},
+  {n:'霧',   d:'mist',      p:{bright:.42,density:.26,weight:.44,motion:.46,tension:.22,space:.82,grit:.30,seq:0,  tempo:.35,mutate:.30,reso:.40,sres:.35,harm:0,  chordrhy:.20}},
+  {n:'灰',   d:'ash',       p:{bright:.35,density:.34,weight:.58,motion:.38,tension:.46,space:.60,grit:.58,seq:.18,tempo:.30,mutate:.45,reso:.45,sres:.50,harm:0,  chordrhy:.20}},
+  {n:'錆',   d:'rust',      p:{bright:.52,density:.30,weight:.50,motion:.28,tension:.78,space:.52,grit:.86,seq:.22,tempo:.26,mutate:.60,reso:.55,sres:.72,harm:0,  chordrhy:.20}},
+  {n:'遠雷', d:'far storm', p:{bright:.22,density:.18,weight:.86,motion:.34,tension:.40,space:.88,grit:.42,seq:0,  tempo:.30,mutate:.30,reso:.40,sres:.40,harm:0,  chordrhy:.20}},
+  {n:'白光', d:'glow',      p:{bright:.86,density:.48,weight:.30,motion:.52,tension:.12,space:.78,grit:.14,seq:.30,tempo:.55,mutate:.25,reso:.70,sres:.40,harm:0,  chordrhy:.20}},
+  {n:'深海', d:'abyss',     p:{bright:.10,density:.12,weight:.94,motion:.22,tension:.30,space:.94,grit:.18,seq:0,  tempo:.22,mutate:.15,reso:.25,sres:.28,harm:0,  chordrhy:.20}},
+  {n:'圧',   d:'pressure',  p:{bright:.46,density:.62,weight:.78,motion:.60,tension:.66,space:.44,grit:.74,seq:.45,tempo:.62,mutate:.55,reso:.58,sres:.66,harm:0,  chordrhy:.20}},
+  {n:'巡航', d:'cruise',    p:{bright:.56,density:.34,weight:.62,motion:.40,tension:.18,space:.74,grit:.22,seq:.82,tempo:.52,mutate:.30,reso:.55,sres:.62,harm:0,  chordrhy:.20}},
+  {n:'夜行', d:'night ride',p:{bright:.38,density:.24,weight:.80,motion:.34,tension:.30,space:.80,grit:.34,seq:.70,tempo:.38,mutate:.42,reso:.42,sres:.76,harm:0,  chordrhy:.20}},
+  {n:'電磁', d:'flux',      p:{bright:.72,density:.44,weight:.46,motion:.66,tension:.52,space:.62,grit:.60,seq:.90,tempo:.74,mutate:.66,reso:.72,sres:.84,harm:0,  chordrhy:.20}},
+  {n:'研磨', d:'abrasion',  p:{bright:.48,density:.40,weight:.66,motion:.30,tension:.58,space:.46,grit:.94,seq:.38,tempo:.44,mutate:.50,reso:.50,sres:.58,harm:0,  chordrhy:.20}},
+  {n:'大気', d:'stratum',   p:{bright:.62,density:.30,weight:.48,motion:.36,tension:.16,space:.80,grit:.10,seq:.52,tempo:.48,mutate:.22,reso:.58,sres:.56,harm:.88,chordrhy:.04}},
+  {n:'均衡', d:'equipoise', p:{bright:.70,density:.44,weight:.56,motion:.42,tension:.22,space:.66,grit:.18,seq:.74,tempo:.62,mutate:.34,reso:.64,sres:.68,harm:1,  chordrhy:.78}},
+  {n:'失調', d:'disequilibrium', p:{bright:.50,density:.30,weight:.66,motion:.44,tension:.28,space:.84,grit:.30,seq:.40,tempo:.44,mutate:.30,reso:.50,sres:.50,harm:.50,chordrhy:.34}},
+];
+
+const PRESET_TIP = {
+  '静止':'最低限の低いドローンだけ。出来事はほとんど起きず、ほぼ動かない',
+  '霧':'柔らかい中域とノイズ層。輪郭のぼやけた持続音',
+  '灰':'中域中心で粒子が多い。冷たく無彩色な質感',
+  '錆':'不協和と金属的共鳴が強い。軋むように不安定',
+  '遠雷':'深く重い低音と広い残響。遠くでまばらに鳴る',
+  '白光':'明るく協和的。高域のきらめきが多い',
+  '深海':'最も低く遅い。ほとんど動かない巨大な空間',
+  '圧':'密度も緊張も高く、押し寄せるような塊',
+  '巡航':'一定速度で走るシーケンス。RubyconやRicochet的な巡航感',
+  '夜行':'低速で共振の強いシーケンスと重い低音',
+  '電磁':'速く変異の多いシーケンス。落ち着かない電流的な動き',
+  '研磨':'ざらつきを極端まで上げた状態。歪みと粉塵で表面が削れていく',
+  '大気':'和声展開の持続コード。4小節ごとに和音が切り替わる',
+  '均衡':'和声展開の刻みモード。2小節ごとの和音と細かいコード刻み',
+  '失調':'ドローン展開と和声展開を半々で重ね、どちらにも定まらない状態',
+};
+
+const TIPS = {
+  weight: '全体の音域を下げ、低音の量を増やす',
+  motion: 'LFOの深さと速さ。音量・音色・デチューンの揺れ',
+  tension:'和音の音程を協和から不協和へ連続的に変える',
+  space:  'リバーブとディレイの量。奥行きと余韻の長さ',
+  grit:   'ドローンの表面を荒らす。歪み・リングモジュレーション・微細な粉塵ノイズが増え、上げるほど金属を削るような粗いテクスチャになる',
+  level:  '出力レベル',
+  seq:    'シーケンサ全体の音量。0にするとドローンだけになる',
+  tempo:  'シーケンスのテンポ。55〜150 BPM。推移時間をかけて加減速する',
+  mutate: '1小節ごとに音程・ゲート・オクターブが書き換わる確率',
+  reso:   'シーケンス用フィルターの開き具合（110〜3200Hz）。1音ごとにここを基準に開閉する',
+  sres:   'シーケンス用フィルターのQ。上げるほど癖の強い鳴りになる',
+  harm:   '0でドローン展開、1で和声展開のコード。中間では両者がクロスフェードして重なる',
+  chordrhy:'0.08未満でコードは持続音。上げると刻みが細かくなり、0.5以上ではコードの切り替わりが4小節から2小節ごとになる',
+};
+
+const target  = {}, current = {};
+for (const k in P){ target[k]=P[k].def; current[k]=P[k].def; }
+let glide = 15;          // 秒。目標に到達するおおよその時間
+let autoDrift = true;
+
+/* ============================================================
+   オーディオ
+   ============================================================ */
+const GRIT_MAX = 0.8;   // 「ざらつき」スライダー1.0時の実効値
+const NVOICE = 5;
+const CONSONANT = [0, 7, 12, 19, 24];
+const NEUTRAL   = [0, 5, 12, 17, 22];
+const TENSE     = [0, 1,  6, 13, 23];
+
+let ctx=null, master=null, dry=null, revSend=null, dlySend=null,
+    voices=[], noise=null, metal=[], comp=null, streamDest=null,
+    recorder=null, chunks=[], running=false, ready=false, eventTimer=null,
+    rootMidi=33, rootTarget=33, rootTimer=null;
+
+const lerp=(a,b,t)=>a+(b-a)*t;
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const expMap=(v,lo,hi)=>lo*Math.pow(hi/lo,clamp(v));
+const mtof=m=>440*Math.pow(2,(m-69)/12);
+const rand=(a,b)=>a+Math.random()*(b-a);
+
+function pinkBuffer(sec){
+  const n=Math.floor(ctx.sampleRate*sec);
+  const buf=ctx.createBuffer(2,n,ctx.sampleRate);
+  for(let ch=0;ch<2;ch++){
+    const d=buf.getChannelData(ch);
+    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for(let i=0;i<n;i++){
+      const w=Math.random()*2-1;
+      b0=0.99886*b0+w*0.0555179; b1=0.99332*b1+w*0.0750759;
+      b2=0.96900*b2+w*0.1538520; b3=0.86650*b3+w*0.3104856;
+      b4=0.55000*b4+w*0.5329522; b5=-0.7616*b5-w*0.0168980;
+      d[i]=(b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.09;
+      b6=w*0.115926;
+    }
+  }
+  return buf;
+}
+
+function impulse(sec,decay){
+  const n=Math.floor(ctx.sampleRate*sec);
+  const buf=ctx.createBuffer(2,n,ctx.sampleRate);
+  for(let ch=0;ch<2;ch++){
+    const d=buf.getChannelData(ch);
+    for(let i=0;i<n;i++){
+      const t=i/n;
+      d[i]=(Math.random()*2-1)*Math.pow(1-t,decay)*(1-Math.exp(-i/400));
+    }
+  }
+  return buf;
+}
+
+function lfo(freq,depth,param){
+  const o=ctx.createOscillator(), g=ctx.createGain();
+  o.type='sine'; o.frequency.value=freq; g.gain.value=depth;
+  o.connect(g).connect(param); o.start();
+  return {osc:o,gain:g};
+}
+
+function build(){
+  ctx = new (window.AudioContext||window.webkitAudioContext)();
+
+  comp = ctx.createDynamicsCompressor();
+  comp.threshold.value=-14; comp.knee.value=24; comp.ratio.value=4;
+  comp.attack.value=.05; comp.release.value=.6;
+
+  master = ctx.createGain(); master.gain.value=0;
+  master.connect(comp).connect(ctx.destination);
+  streamDest = ctx.createMediaStreamDestination();
+  comp.connect(streamDest);
+
+  dry = ctx.createGain(); dry.gain.value=.85; dry.connect(master);
+
+  // reverb
+  const conv=ctx.createConvolver(); conv.buffer=impulse(7,2.4);
+  const revGain=ctx.createGain(); revGain.gain.value=.5;
+  revSend=ctx.createGain(); revSend.gain.value=.5;
+  revSend.connect(conv).connect(revGain).connect(master);
+
+  // delay
+  const dl=ctx.createDelay(8); dl.delayTime.value=3.7;
+  const fb=ctx.createGain(); fb.gain.value=.5;
+  const dfil=ctx.createBiquadFilter(); dfil.type='lowpass'; dfil.frequency.value=1600;
+  const dOut=ctx.createGain(); dOut.gain.value=.4;
+  dlySend=ctx.createGain(); dlySend.gain.value=.3;
+  dlySend.connect(dl); dl.connect(dfil).connect(fb).connect(dl);
+  dfil.connect(dOut).connect(master);
+  build.delay={dl,fb,dOut,dfil};
+
+  // ---- シーケンサ用バス（ベルリン・スクール的な左右ディレイ） ----
+  const sBus=ctx.createGain(); sBus.gain.value=0;
+  const sDry=ctx.createGain(); sDry.gain.value=.75;
+  sBus.connect(sDry).connect(master);
+  sBus.connect(revSend);
+  const mkTap=(pan)=>{
+    const d=ctx.createDelay(4), f=ctx.createGain(), lp=ctx.createBiquadFilter(), p=ctx.createStereoPanner(), o=ctx.createGain();
+    lp.type='lowpass'; lp.frequency.value=2600; f.gain.value=.55; p.pan.value=pan; o.gain.value=.55;
+    sBus.connect(d); d.connect(lp).connect(f).connect(d); lp.connect(o).connect(p).connect(master);
+    p.connect(revSend);
+    return {d,f,lp,o};
+  };
+  build.seq={bus:sBus, dry:sDry, tapL:mkTap(-.8), tapR:mkTap(.8)};
+
+  // ---- 展開（コード・パッド） ----
+  const padSum=ctx.createGain(); padSum.gain.value=.20;
+  const padFil=ctx.createBiquadFilter(); padFil.type='lowpass'; padFil.Q.value=.9; padFil.frequency.value=1800;
+  const padEnv=ctx.createGain(); padEnv.gain.value=0;
+  const padBus=ctx.createGain(); padBus.gain.value=0;
+  padSum.connect(padFil).connect(padEnv);
+  padEnv.connect(padBus);
+  // 弦楽アンサンブル的なコーラス
+  const chA=ctx.createDelay(.06), chB=ctx.createDelay(.06);
+  chA.delayTime.value=.013; chB.delayTime.value=.021;
+  lfo(.11,.0035,chA.delayTime); lfo(.17,.0045,chB.delayTime);
+  const pL=ctx.createStereoPanner(); pL.pan.value=-.75;
+  const pR=ctx.createStereoPanner(); pR.pan.value=.75;
+  const chG=ctx.createGain(); chG.gain.value=.65;
+  padEnv.connect(chA).connect(pL).connect(chG);
+  padEnv.connect(chB).connect(pR).connect(chG);
+  chG.connect(padBus);
+  padBus.connect(dry); padBus.connect(revSend); padBus.connect(dlySend);
+  const padVoices=[];
+  for(let i=0;i<4;i++){
+    const oa=ctx.createOscillator(), ob=ctx.createOscillator(), oc=ctx.createOscillator();
+    oa.type='sawtooth'; ob.type='sawtooth'; oc.type='triangle';
+    ob.detune.value=8; oc.detune.value=-6;
+    const g=ctx.createGain(); g.gain.value=i===0?.46:.30;
+    oa.connect(g); ob.connect(g); oc.connect(g); g.connect(padSum);
+    oa.start(); ob.start(); oc.start();
+    padVoices.push({oa,ob,oc,g});
+  }
+  build.pad={padVoices,padEnv,padFil,padBus};
+
+  // ---- ドローンバス（質感処理の入口） ----
+  const droneBus=ctx.createGain(); droneBus.gain.value=1;
+  droneBus.connect(dry); droneBus.connect(revSend); droneBus.connect(dlySend);
+
+  // 波形をつぶすカーブ（ソフトクリップ＋折り返し）
+  const curve=new Float32Array(2048);
+  for(let i=0;i<2048;i++){
+    const x=i/1023.5-1;
+    let y=Math.tanh(x*2.4)+.32*Math.sin(x*Math.PI*3)+.12*Math.sin(x*Math.PI*7);
+    curve[i]=Math.max(-1,Math.min(1,y*.72));
+  }
+  const texIn=ctx.createGain();  texIn.gain.value=.5;
+  const shaper=ctx.createWaveShaper(); shaper.curve=curve; shaper.oversample='2x';
+  const texHP=ctx.createBiquadFilter(); texHP.type='highpass'; texHP.frequency.value=90;
+  const texLP=ctx.createBiquadFilter(); texLP.type='lowpass';  texLP.frequency.value=6000;
+  // リングモジュレーション
+  const ringOsc=ctx.createOscillator(); ringOsc.type='square'; ringOsc.frequency.value=90; ringOsc.start();
+  const ringDepth=ctx.createGain(); ringDepth.gain.value=0;
+  const ringGate=ctx.createGain(); ringGate.gain.value=1;
+  ringOsc.connect(ringDepth).connect(ringGate.gain);
+  // 粉塵状の振幅ノイズ
+  const crk=ctx.createBufferSource(); crk.buffer=pinkBuffer(6); crk.loop=true; crk.start();
+  const crkHP=ctx.createBiquadFilter(); crkHP.type='highpass'; crkHP.frequency.value=900;
+  const crkDepth=ctx.createGain(); crkDepth.gain.value=0;
+  const crkGate=ctx.createGain(); crkGate.gain.value=1;
+  crk.connect(crkHP).connect(crkDepth).connect(crkGate.gain);
+  const texOut=ctx.createGain(); texOut.gain.value=0;
+  droneBus.connect(texIn);
+  texIn.connect(shaper).connect(texHP).connect(texLP).connect(ringGate).connect(crkGate).connect(texOut);
+  texOut.connect(dry); texOut.connect(revSend); texOut.connect(dlySend);
+  build.tex={texIn,texOut,ringOsc,ringDepth,crkDepth,texLP,texHP,droneBus};
+  build.grainBuf=pinkBuffer(4);
+
+  // ---- ドローン声部 ----
+  voices=[];
+  for(let i=0;i<NVOICE;i++){
+    const g=ctx.createGain(); g.gain.value=0;
+    const f=ctx.createBiquadFilter(); f.type='lowpass'; f.Q.value=1.6; f.frequency.value=400;
+    const pan=ctx.createStereoPanner(); pan.pan.value=(i/(NVOICE-1))*1.4-0.7;
+    const oscA=ctx.createOscillator(), oscB=ctx.createOscillator();
+    oscA.type = i%2 ? 'sawtooth' : 'triangle';
+    oscB.type = i%3 ? 'triangle' : 'sawtooth';
+    const mixA=ctx.createGain(), mixB=ctx.createGain();
+    mixA.gain.value=.5; mixB.gain.value=.5;
+    oscA.connect(mixA).connect(f); oscB.connect(mixB).connect(f);
+    f.connect(g).connect(pan);
+    pan.connect(droneBus);
+    oscA.start(); oscB.start();
+
+    const ampLfo = lfo(rand(.008,.035), .18, g.gain);
+    const filLfo = lfo(rand(.012,.05), 100, f.frequency);
+    const detLfo = lfo(rand(.03,.11), 6, oscB.detune);
+    voices.push({oscA,oscB,f,g,pan,ampLfo,filLfo,detLfo,base:.16});
+  }
+
+  // ---- ノイズ層 ----
+  const nsrc=ctx.createBufferSource(); nsrc.buffer=pinkBuffer(10); nsrc.loop=true;
+  const nf=ctx.createBiquadFilter(); nf.type='bandpass'; nf.Q.value=.8; nf.frequency.value=600;
+  const ng=ctx.createGain(); ng.gain.value=0;
+  const np=ctx.createStereoPanner(); np.pan.value=0;
+  nsrc.connect(nf).connect(ng).connect(np);
+  np.connect(droneBus);
+  nsrc.start();
+  const nLfo=lfo(.017,300,nf.frequency);
+  const npLfo=lfo(.021,.6,np.pan);
+  noise={nsrc,nf,ng,np,nLfo,npLfo};
+
+  // ---- 金属的共鳴（粒子） ----
+  metal=[];
+  const msrc=ctx.createBufferSource(); msrc.buffer=pinkBuffer(10); msrc.loop=true; msrc.start();
+  const mg=ctx.createGain(); mg.gain.value=0;
+  for(let i=0;i<4;i++){
+    const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=rand(26,64);
+    bp.frequency.value=rand(700,4200);
+    const gg=ctx.createGain(); gg.gain.value=.25;
+    const pp=ctx.createStereoPanner(); pp.pan.value=rand(-.85,.85);
+    msrc.connect(bp).connect(gg).connect(pp).connect(mg);
+    lfo(rand(.02,.09), rand(20,120), bp.frequency);
+    metal.push({bp,gg,pp});
+  }
+  mg.connect(dry); mg.connect(revSend); mg.connect(dlySend);
+  build.metalGain=mg;
+  build.revSend=revSend; build.revGain=revGain;
+  ready=true;
+}
+
+/* ---- 現在値をオーディオに反映 ---- */
+function apply(){
+  if(!ctx || !ready) return;
+  const t=ctx.currentTime, T=.25;
+  const c=current;
+
+  // 和声：緊張度で音程ベクトルを補間
+  const iv=[];
+  for(let i=0;i<NVOICE;i++){
+    iv.push(c.tension<.5
+      ? lerp(CONSONANT[i],NEUTRAL[i],c.tension*2)
+      : lerp(NEUTRAL[i],TENSE[i],(c.tension-.5)*2));
+  }
+  const rf=mtof(rootMidi - c.weight*7);
+
+  const cutoff=expMap(c.bright,110,4200);
+  voices.forEach((v,i)=>{
+    const f=rf*Math.pow(2,iv[i]/12);
+    v.oscA.frequency.setTargetAtTime(f,t,T*4);
+    v.oscB.frequency.setTargetAtTime(f,t,T*4);
+    v.oscA.detune.setTargetAtTime((i-2)*(2+c.tension*22),t,T*4);
+    const w = i===0 ? .55+c.weight*.45 : 1 - i*.13;
+    v.g.gain.setTargetAtTime(v.base*w*(0.35+c.level*.65),t,T);
+    v.f.frequency.setTargetAtTime(cutoff*(1+i*.35),t,T*2);
+    v.filLfo.gain.gain.setTargetAtTime(cutoff*.35*c.motion,t,T);
+    v.ampLfo.gain.gain.setTargetAtTime(.05+c.motion*.22,t,T);
+    v.detLfo.gain.gain.setTargetAtTime(2+c.motion*26+c.tension*14,t,T);
+  });
+
+  noise.ng.gain.setTargetAtTime((.006+c.bright*.05)*(0.3+c.level*.7),t,T);
+  noise.nf.frequency.setTargetAtTime(expMap(c.bright,240,5200),t,T*2);
+  noise.npLfo.gain.gain.setTargetAtTime(.2+c.motion*.7,t,T);
+
+  const gr=c.grit*GRIT_MAX;
+  build.metalGain.gain.setTargetAtTime(Math.pow(gr,1.8)*.26*(0.3+c.level*.7)*(1-c.harm),t,T);
+
+  // ざらつき（歪み・リングモジュレーション・粉塵）
+  const tx=build.tex;
+  tx.texIn.gain.setTargetAtTime(.45+gr*5.2,t,T);
+  tx.texOut.gain.setTargetAtTime(Math.pow(gr,1.25)*.40*(0.35+c.level*.65),t,T);
+  tx.ringDepth.gain.setTargetAtTime(Math.pow(gr,2.1)*.80,t,T);
+  tx.ringOsc.frequency.setTargetAtTime(28+gr*240+c.tension*160,t,T*4);
+  tx.crkDepth.gain.setTargetAtTime(Math.pow(gr,1.7)*2.4,t,T);
+  tx.texLP.frequency.setTargetAtTime(expMap(c.bright,1100,9000),t,T);
+  tx.texHP.frequency.setTargetAtTime(70+gr*280,t,T);
+  tx.droneBus.gain.setTargetAtTime((1-gr*.28)*(1-c.harm*.95),t,T);
+
+  // 展開（和声）
+  const pd=build.pad;
+  pd.padBus.gain.setTargetAtTime(c.harm*.85*(0.35+c.level*.65),t,T);
+  pd.padFil.frequency.setTargetAtTime(expMap(c.bright,420,6800),t,T*2);
+  if(c.chordrhy<.08) pd.padEnv.gain.setTargetAtTime(1,t,.7);
+
+  build.revGain.gain.setTargetAtTime(.15+c.space*.75,t,T);
+  build.delay.fb.gain.setTargetAtTime(.25+c.space*.5,t,T);
+  build.delay.dl.delayTime.setTargetAtTime(1.4+c.space*5.2,t,T*4);
+  build.delay.dOut.gain.setTargetAtTime(.1+c.space*.4,t,T);
+  dry.gain.setTargetAtTime(.95-c.space*.35,t,T);
+
+  // シーケンサ
+  const sq=build.seq;
+  sq.bus.gain.setTargetAtTime(Math.pow(c.seq,1.3)*.55*(1+2*c.seq)*(0.35+c.level*.65),t,T);
+  const sd=stepDur();
+  sq.tapL.d.delayTime.setTargetAtTime(sd*3,t,1.5);   // 付点8分
+  sq.tapR.d.delayTime.setTargetAtTime(sd*4.5,t,1.5); // ずらした返し
+  sq.tapL.f.gain.setTargetAtTime(.30+c.space*.45,t,T);
+  sq.tapR.f.gain.setTargetAtTime(.24+c.space*.45,t,T);
+  sq.tapL.lp.frequency.setTargetAtTime(expMap(c.reso,700,6000),t,T);
+  sq.tapR.lp.frequency.setTargetAtTime(expMap(c.reso,600,5000),t,T);
+
+  master.gain.setTargetAtTime(running ? .28+c.level*.5 : 0, t, running?1.2:2.0);
+}
+
+/* ---- 単発の音（点） ---- */
+function ping(){
+  if(!running||!ctx) return;
+  const c=current;
+  const scale=c.tension<.45?[0,2,7,9,12,14,19]:[0,1,6,7,11,13,18];
+  const deg=scale[Math.floor(Math.random()*scale.length)];
+  const oct=12*(1+Math.floor(Math.random()*3));
+  const f=mtof(rootMidi-c.weight*7)*Math.pow(2,(deg+oct)/12);
+
+  const t=ctx.currentTime;
+  const o=ctx.createOscillator();
+  o.type=c.grit*GRIT_MAX>.5&&Math.random()<.4?'square':'sine';
+  o.frequency.value=f;
+  const mo=ctx.createOscillator(), mg=ctx.createGain();
+  mo.frequency.value=f*rand(1.4,3.1); mg.gain.value=f*(.1+c.tension*1.4);
+  mo.connect(mg).connect(o.frequency); mo.start(t); mo.stop(t+9);
+
+  const g=ctx.createGain();
+  const pk=(.05+c.level*.09)*(1-c.density*.4)*(1-c.harm);
+  const dur=rand(2.5,9)*(0.6+c.space);
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(pk,t+.012);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+
+  const bp=ctx.createBiquadFilter(); bp.type='lowpass';
+  bp.frequency.value=expMap(c.bright,600,9000); bp.Q.value=1;
+  const pan=ctx.createStereoPanner(); pan.pan.value=rand(-.9,.9);
+
+  o.connect(bp).connect(g).connect(pan);
+  pan.connect(dry); pan.connect(revSend); pan.connect(dlySend);
+  o.start(t); o.stop(t+dur+.2);
+  setTimeout(()=>{try{pan.disconnect()}catch(e){}}, (dur+1)*1000);
+}
+
+function scheduleEvents(){
+  clearTimeout(eventTimer);
+  const mean=expMap(1-current.density,2.0,48);
+  const wait=mean*rand(.35,1.9);
+  eventTimer=setTimeout(()=>{ ping(); scheduleEvents(); }, wait*1000);
+}
+
+let grainTimer=null;
+function grain(){
+  if(!running||!ctx) return;
+  const c=current;
+  if(c.grit<.05) return;
+  const t=ctx.currentTime;
+  const buf=build.grainBuf;
+  const src=ctx.createBufferSource(); src.buffer=buf;
+  src.playbackRate.value=rand(.4,2.4);
+  const bp=ctx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=rand(1.5,16);
+  bp.frequency.value=expMap(Math.random(),260,7500);
+  const dur=rand(.008,.09)*(1+c.space*.6);
+  const g=ctx.createGain();
+  g.gain.setValueAtTime(.0001,t);
+  g.gain.linearRampToValueAtTime(rand(.05,.24)*Math.pow(c.grit*GRIT_MAX,1.3)*(0.3+c.level*.7)*(1-c.harm*.6),t+.002);
+  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  const pan=ctx.createStereoPanner(); pan.pan.value=rand(-.95,.95);
+  src.connect(bp).connect(g).connect(pan);
+  pan.connect(dry); pan.connect(revSend); pan.connect(dlySend);
+  src.start(t, Math.random()*(buf.duration-.2), dur+.03);
+  setTimeout(()=>{try{pan.disconnect()}catch(e){}}, (dur+1)*1000);
+}
+function scheduleGrains(){
+  clearTimeout(grainTimer);
+  const wait=expMap(1-current.grit*GRIT_MAX,.03,3.0)*rand(.35,1.9);
+  grainTimer=setTimeout(()=>{ grain(); scheduleGrains(); }, wait*1000);
+}
+
+function scheduleRoot(){
+  clearTimeout(rootTimer);
+  rootTimer=setTimeout(()=>{
+    if(running && autoDrift){
+      const step=[-5,-3,-2,0,2,3,5][Math.floor(Math.random()*7)];
+      rootTarget=clamp(rootMidi+step,26,45);
+    }
+    scheduleRoot();
+  }, rand(35,110)*1000);
+}
+
+/* ============================================================
+   シーケンサ（16ステップ / ベルリン・スクール）
+   ============================================================ */
+let pattern=[], stepIdx=0, nextStepTime=0, seqTimer=null, uiStep=-1;
+
+function reseed(){
+  pattern=[];
+  for(let i=0;i<16;i++){
+    pattern.push({
+      on:  Math.random() < (i%4===0 ? .96 : i%2===0 ? .70 : .52),
+      deg: Math.floor(Math.random()*7),
+      oct: Math.random()<.16 ? 1 : (Math.random()<.10 ? -1 : 0),
+      acc: Math.random()<.28
+    });
+  }
+  renderSteps();
+}
+
+function stepDur(){ return 60/(55+current.tempo*95)/4; }   // 16分音符
+
+function playStep(i,time){
+  const c=current, st=pattern[i];
+  if(!st.on || c.seq<.02) return;
+  const scale = c.tension<.45 ? [0,2,3,5,7,8,10] : [0,1,3,6,7,10,11];
+  const semi = scale[st.deg] + st.oct*12 + 24;
+  const f = mtof(rootMidi - c.weight*7) * Math.pow(2, semi/12);
+
+  const o1=ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=f;
+  const o2=ctx.createOscillator(); o2.type='square';   o2.frequency.value=f; o2.detune.value=-7;
+  const o3=ctx.createOscillator(); o3.type='sawtooth'; o3.frequency.value=f/2; o3.detune.value=5;
+  const m1=ctx.createGain(), m2=ctx.createGain(), m3=ctx.createGain();
+  m1.gain.value=.42; m2.gain.value=.20; m3.gain.value=.30;
+
+  const flt=ctx.createBiquadFilter(); flt.type='lowpass';
+  flt.Q.value=Math.min(20, 0.7+c.sres*18);
+  const base=expMap(c.reso,110,3200);
+  const peak=Math.min(base*(2.4+(st.acc?2.4:0)+c.grit*GRIT_MAX*1.6), 12000);
+  flt.frequency.setValueAtTime(peak,time);
+  flt.frequency.exponentialRampToValueAtTime(Math.max(80,base*.82), time+.22+(1-c.reso)*.35);
+
+  const gate=Math.min(.95, stepDur()*(st.acc?2.4:1.5)+.06);
+  const g=ctx.createGain();
+  const amp=(st.acc?.62:.44)/(1+c.sres*1.1);
+  g.gain.setValueAtTime(.0001,time);
+  g.gain.linearRampToValueAtTime(amp,time+.006);
+  g.gain.exponentialRampToValueAtTime(.0001,time+gate);
+
+  const pan=ctx.createStereoPanner();
+  pan.pan.value=((i%4)/3-.5)*.7;
+
+  o1.connect(m1).connect(flt); o2.connect(m2).connect(flt); o3.connect(m3).connect(flt);
+  flt.connect(g).connect(pan).connect(build.seq.bus);
+  [o1,o2,o3].forEach(o=>{o.start(time);o.stop(time+gate+.08)});
+  setTimeout(()=>{try{pan.disconnect()}catch(e){}}, (time-ctx.currentTime+gate+1)*1000);
+
+  // 4拍ごとの低音パルス
+  if(i%4===0 && c.seq>.34){
+    const b=ctx.createOscillator(); b.type='triangle'; b.frequency.value=f/4;
+    const bf=ctx.createBiquadFilter(); bf.type='lowpass'; bf.frequency.value=260+c.bright*500; bf.Q.value=2;
+    const bg=ctx.createGain();
+    bg.gain.setValueAtTime(.0001,time);
+    bg.gain.linearRampToValueAtTime(.42,time+.01);
+    bg.gain.exponentialRampToValueAtTime(.0001,time+Math.min(.7,stepDur()*3.2));
+    b.connect(bf).connect(bg).connect(build.seq.bus);
+    b.start(time); b.stop(time+.9);
+  }
+}
+
+function mutateBar(){
+  const m=current.mutate;
+  const hit=()=>Math.floor(Math.random()*16);
+  if(Math.random()<m){
+    const st=pattern[hit()], r=Math.random();
+    if(r<.42) st.deg=Math.floor(Math.random()*7);
+    else if(r<.72) st.on=!st.on;
+    else if(r<.90) st.oct=[-1,0,0,1][Math.floor(Math.random()*4)];
+    else st.acc=!st.acc;
+  }
+  if(Math.random()<m*.45) pattern[hit()].deg=Math.floor(Math.random()*7);
+  if(Math.random()<m*.12) reseed();
+  renderSteps();
+}
+
+function seqTick(){
+  if(!ctx||!running) return;
+  while(nextStepTime < ctx.currentTime+.15){
+    const t=Math.max(nextStepTime, ctx.currentTime+.01);
+    const idx=stepIdx;
+    if(idx===0){ barCount++; chordBar(t); }
+    chordStep(idx,t);
+    playStep(idx,t);
+    setTimeout(()=>{ uiStep=idx; renderSteps(); }, Math.max(0,(t-ctx.currentTime)*1000));
+    nextStepTime=t+stepDur();
+    stepIdx=(stepIdx+1)%16;
+    if(stepIdx===0) mutateBar();
+  }
+}
+
+/* ============================================================
+   展開（和声進行）
+   ============================================================ */
+// マイナー調での典型的な進行。r=根音のオフセット(半音)、q=長短
+const PROGS=[
+  {r:[0, 8, 3,10], q:['m','M','M','M']},  // i - VI - III - VII
+  {r:[0,10, 8,10], q:['m','M','M','M']},  // i - VII - VI - VII
+  {r:[0, 5,10, 3], q:['m','m','M','M']},  // i - iv - VII - III
+  {r:[0, 8,10, 0], q:['m','M','M','m']},  // i - VI - VII - i
+  {r:[0, 3,10, 5], q:['m','M','M','m']},  // i - III - VII - iv
+  {r:[0, 7, 8, 3], q:['m','m','M','M']},  // i - v - VI - III
+];
+const CHORD={ m:[0,3,7,14], M:[0,4,7,14] };   // add9を足したトライアド
+const RHY=[[2,6,10,14],[0,3,6,8,11,14],[0,2,4,6,8,10,12,14]];
+let progIdx=0, chordPos=-1, barCount=-1;
+
+function setChord(time){
+  if(!ready) return;
+  const p=PROGS[progIdx];
+  const off=p.r[chordPos], tones=CHORD[p.q[chordPos]];
+  const base=rootMidi+12+off;
+  const notes=[base-12, base+tones[1], base+tones[2], base+tones[3]];
+  build.pad.padVoices.forEach((v,i)=>{
+    const f=mtof(notes[i]);
+    v.oa.frequency.setValueAtTime(f,time);   // ポルタメントなし
+    v.ob.frequency.setValueAtTime(f,time);
+    v.oc.frequency.setValueAtTime(f,time);
+  });
+}
+
+function chordBar(time){
+  const bars = current.chordrhy>=.5 ? 2 : 4;
+  if(barCount % bars !== 0) return;
+  chordPos=(chordPos+1)%4;
+  if(chordPos===0 && Math.random() < .30+current.mutate*.45)
+    progIdx=Math.floor(Math.random()*PROGS.length);
+  setChord(time);
+}
+
+function chordStep(i,time){
+  const r=current.chordrhy;
+  if(r<.08 || current.harm<.02 || !ready) return;
+  const pat = r<.40 ? RHY[0] : r<.72 ? RHY[1] : RHY[2];
+  if(pat.indexOf(i)<0) return;
+  const g=build.pad.padEnv.gain;
+  const gate=Math.min(.85, stepDur()*(2.4-r*1.3)+.05);
+  g.cancelScheduledValues(time);
+  g.setValueAtTime(.0001,time);
+  g.linearRampToValueAtTime(1,time+.014);
+  g.exponentialRampToValueAtTime(.05,time+gate);
+}
+
+/* ============================================================
+   平滑化ループ
+   ============================================================ */
+let last=performance.now();
+setInterval(()=>{
+  const now=performance.now(), dt=(now-last)/1000; last=now;
+  const tau=Math.max(1,glide)/3;
+  const k=1-Math.exp(-dt/tau);
+  for(const key in P) current[key]+= (target[key]-current[key])*k;
+  rootMidi += (rootTarget-rootMidi)*k;
+
+  if(autoDrift && running){
+    for(const key of ['bright','density','motion','tension','space','grit','mutate','reso','sres']){
+      target[key]=clamp(target[key]+(Math.random()-.5)*dt*0.024);
+    }
+    target.tempo=clamp(target.tempo+(Math.random()-.5)*dt*0.008);
+    syncUI();
+  }
+  apply();
+  readout();
+}, 100);
+
+/* ============================================================
+   UI
+   ============================================================ */
+const presetsEl=document.getElementById('presets');
+PRESETS.forEach((pr,i)=>{
+  const b=document.createElement('button');
+  b.className='preset'; b.setAttribute('aria-pressed','false');
+  b.dataset.tip=PRESET_TIP[pr.n]||'';
+  b.innerHTML=`${pr.n}<small>${pr.d}</small>`;
+  b.addEventListener('click',()=>{
+    for(const k in pr.p) target[k]=pr.p[k];
+    [...presetsEl.children].forEach(c=>c.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true');
+    syncUI(true);
+  });
+  presetsEl.appendChild(b);
+});
+
+const paramsEl=document.getElementById('params');
+const seqEl=document.getElementById('seqparams');
+const inputs={};
+function makeSlider(key,host){
+  const wrap=document.createElement('div'); wrap.className='param';
+  wrap.innerHTML=`<label for="s_${key}"><span data-tip="${TIPS[key]||''}">${P[key].label}</span><span class="val" id="v_${key}"></span></label>`;
+  const r=document.createElement('input');
+  r.type='range'; r.min=0; r.max=1; r.step=.005; r.value=target[key]; r.id='s_'+key;
+  r.addEventListener('input',()=>{ target[key]=parseFloat(r.value); updateVal(key); clearPresetHighlight(); });
+  wrap.appendChild(r); host.appendChild(wrap);
+  inputs[key]=r; updateVal(key);
+}
+for(const key of SLIDERS) makeSlider(key,paramsEl);
+for(const key of SEQP)    makeSlider(key,seqEl);
+for(const key of HARMP)   makeSlider(key,document.getElementById('harmparams'));
+// ゆらぎ時間
+{
+  const wrap=document.createElement('div'); wrap.className='param';
+  wrap.innerHTML=`<label for="s_glide"><span data-tip="目標値に追いつくまでのおおよその時間。長いほど変化がゆっくりになる">推移時間</span><span class="val" id="v_glide">15s</span></label>`;
+  const r=document.createElement('input');
+  r.type='range'; r.min=5; r.max=300; r.step=1; r.value=15; r.id='s_glide';
+  r.addEventListener('input',()=>{ glide=parseFloat(r.value); document.getElementById('v_glide').textContent=glide+'s'; });
+  wrap.appendChild(r); paramsEl.appendChild(wrap);
+}
+
+function updateVal(key){
+  const el=document.getElementById('v_'+key);
+  if(!el) return;
+  el.textContent = key==='tempo'
+    ? Math.round(55+target.tempo*95)+' BPM'
+    : target[key].toFixed(2);
+}
+function syncUI(){
+  for(const key in inputs){ inputs[key].value=target[key]; updateVal(key); }
+}
+function clearPresetHighlight(){
+  [...presetsEl.children].forEach(c=>c.setAttribute('aria-pressed','false'));
+}
+
+const driftBtn=document.getElementById('drift');
+driftBtn.addEventListener('click',()=>{
+  autoDrift=!autoDrift;
+  driftBtn.setAttribute('aria-pressed',String(autoDrift));
+});
+
+/* ---- ステップ列 ---- */
+const stepsEl=document.getElementById('steps');
+for(let i=0;i<16;i++) stepsEl.appendChild(document.createElement('i'));
+function renderSteps(){
+  const cells=stepsEl.children;
+  for(let i=0;i<16;i++){
+    const st=pattern[i], c=cells[i];
+    if(!st) continue;
+    c.style.height=(st.on ? 24+st.deg*9+st.oct*14 : 12)+'%';
+    c.className=(st.on?'on':'')+(i===uiStep?' now':'');
+  }
+}
+document.getElementById('reseed').addEventListener('click',e=>{
+  reseed();
+  const b=e.currentTarget;
+  b.setAttribute('aria-pressed','true');
+  setTimeout(()=>b.setAttribute('aria-pressed','false'),260);
+});
+reseed();
+
+/* ---- 漂流面 ---- */
+const plane=document.getElementById('plane');
+const cv=document.getElementById('cv'), g2=cv.getContext('2d');
+let trail=[];
+function resize(){
+  const r=cv.getBoundingClientRect(), d=window.devicePixelRatio||1;
+  cv.width=Math.max(1,Math.round(r.width*d));
+  cv.height=Math.max(1,Math.round(r.height*d));
+  g2.setTransform(d,0,0,d,0,0);
+  trail.length=0;
+}
+new ResizeObserver(resize).observe(plane);
+window.addEventListener('resize',resize);
+resize();
+
+let dragging=false;
+function setFromPointer(e){
+  const r=cv.getBoundingClientRect();
+  target.bright  = clamp((e.clientX-r.left)/r.width);
+  target.density = clamp((e.clientY-r.top)/r.height);
+  clearPresetHighlight();
+}
+plane.addEventListener('pointerdown',e=>{dragging=true;plane.setPointerCapture(e.pointerId);setFromPointer(e)});
+plane.addEventListener('pointermove',e=>{if(dragging)setFromPointer(e)});
+plane.addEventListener('pointerup',()=>dragging=false);
+plane.addEventListener('pointercancel',()=>dragging=false);
+
+const flakes=[];
+function draw(){
+  const w=cv.clientWidth,h=cv.clientHeight;
+  g2.clearRect(0,0,w,h);
+
+  // マリンスノー：密なほど小さく多数、疎なほど大きく少数
+  const d=current.density;
+  const want=Math.max(2,Math.round(3+d*72));
+  while(flakes.length<want) flakes.push({
+    x:Math.random()*w, y:Math.random()*h,
+    rr:.5+Math.random()*.75, vv:.5+Math.random()*.9, ph:Math.random()*99
+  });
+  while(flakes.length>want) flakes.pop();
+
+  const bigR=Math.min(w,h)*.05;                 // 直径でパッドの約10%
+  const rBase=1.5+(bigR-1.5)*Math.pow(1-d,2.1);
+  for(const f of flakes){
+    const r=rBase*f.rr;
+    const v=f.vv*(.06+d*.34)*(1+(1-d)*.25);
+    f.y+=v; f.ph+=.004;
+    f.x+=Math.sin(f.ph)*(.10+r*.02);
+    if(f.y-r>h){ f.y=-r; f.x=Math.random()*w; }
+    if(f.x<-r) f.x=w+r; else if(f.x>w+r) f.x=-r;
+    const a=(.20+d*.42)*(r>7?.7:1);
+    if(r>7){
+      const gr=g2.createRadialGradient(f.x,f.y,0,f.x,f.y,r);
+      gr.addColorStop(0,`rgba(226,240,246,${a*.85})`);
+      gr.addColorStop(.55,`rgba(214,234,242,${a*.42})`);
+      gr.addColorStop(1,'rgba(214,234,242,0)');
+      g2.fillStyle=gr;
+    }else{
+      g2.fillStyle=`rgba(220,233,240,${a})`;
+    }
+    g2.beginPath(); g2.arc(f.x,f.y,r,0,7); g2.fill();
+  }
+
+  // grid
+  g2.strokeStyle='rgba(226,236,242,.14)'; g2.lineWidth=1;
+  for(let i=1;i<4;i++){
+    g2.beginPath(); g2.moveTo(w*i/4,0); g2.lineTo(w*i/4,h); g2.stroke();
+    g2.beginPath(); g2.moveTo(0,h*i/4); g2.lineTo(w,h*i/4); g2.stroke();
+  }
+  const tx=target.bright*w, ty=target.density*h;
+  const cx=current.bright*w, cy=current.density*h;
+
+  trail.push([cx,cy]); if(trail.length>260) trail.shift();
+  g2.lineWidth=1;
+  for(let i=1;i<trail.length;i++){
+    g2.strokeStyle=`rgba(216,163,64,${(i/trail.length)*.30})`;
+    g2.beginPath(); g2.moveTo(trail[i-1][0],trail[i-1][1]);
+    g2.lineTo(trail[i][0],trail[i][1]); g2.stroke();
+  }
+  // 目標へのリンク
+  g2.strokeStyle='rgba(231,226,206,.22)'; g2.setLineDash([2,4]);
+  g2.beginPath(); g2.moveTo(cx,cy); g2.lineTo(tx,ty); g2.stroke(); g2.setLineDash([]);
+  // 目標
+  g2.strokeStyle='#E7E2CE'; g2.lineWidth=1;
+  g2.beginPath(); g2.arc(tx,ty,7,0,7); g2.stroke();
+  g2.beginPath(); g2.moveTo(tx-11,ty); g2.lineTo(tx-8,ty); g2.moveTo(tx+8,ty); g2.lineTo(tx+11,ty);
+  g2.moveTo(tx,ty-11); g2.lineTo(tx,ty-8); g2.moveTo(tx,ty+8); g2.lineTo(tx,ty+11); g2.stroke();
+  // 現在（ランプ）
+  const gl=g2.createRadialGradient(cx,cy,0,cx,cy,26);
+  gl.addColorStop(0,'rgba(216,163,64,.55)'); gl.addColorStop(1,'rgba(216,163,64,0)');
+  g2.fillStyle=gl; g2.beginPath(); g2.arc(cx,cy,26,0,7); g2.fill();
+  g2.fillStyle='#D8A340'; g2.beginPath(); g2.arc(cx,cy,4,0,7); g2.fill();
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+const root=document.documentElement;
+let seaPhase=0, seaLast=performance.now();
+function seaColors(){
+  const b=current.bright, d=current.density;
+  const now=performance.now(), dt=Math.min(.5,(now-seaLast)/1000); seaLast=now;
+
+  const hue = 168 + d*57;                       // 青緑 → 深い青
+  const sat = clamp(56 + d*16, 0, 78);
+  const L   = (7 + b*33) * (1 - d*.45) * (1 + (1-d)*.55);
+  const hsl=(hh,ss,ll)=>`hsl(${hh.toFixed(1)} ${clamp(ss,0,86).toFixed(1)}% ${clamp(ll,2,45).toFixed(1)}%)`;
+  root.style.setProperty('--sea-top', hsl(hue-9, sat*.78, L*1.45));
+  root.style.setProperty('--sea-mid', hsl(hue,   sat,     L));
+  root.style.setProperty('--sea-bot', hsl(hue+7, sat*1.12,L*.46));
+
+  // 水面の呼吸：ゆらぎが大きいほど深く、ゆっくり上下する
+  seaPhase += dt * (0.018 + current.motion*0.075);
+  const amp = 5 + current.motion*24;
+  root.style.setProperty('--sea-split', (52 + Math.sin(seaPhase)*amp).toFixed(2)+'%');
+}
+
+function readout(){
+  document.getElementById('ro').textContent=mtof(rootMidi-current.weight*7).toFixed(1)+' Hz';
+  document.getElementById('rb').textContent=current.bright.toFixed(2);
+  document.getElementById('rd').textContent=current.density.toFixed(2);
+  document.getElementById('rt').textContent=current.tension.toFixed(2);
+  document.getElementById('bpmlab').textContent=Math.round(55+current.tempo*95)+' BPM';
+  seaColors();
+}
+seaColors();
+
+/* ---- 起動 / 録音 ---- */
+const powerBtn=document.getElementById('power');
+const recBtn=document.getElementById('rec');
+
+powerBtn.addEventListener('click',async()=>{
+  if(!running){
+    if(!ctx) build();
+    await ctx.resume();
+    running=true;
+    powerBtn.dataset.on='1'; powerBtn.textContent='停止';
+    recBtn.disabled=false;
+    scheduleEvents(); scheduleRoot(); scheduleGrains();
+    stepIdx=0; barCount=-1; chordPos=-1; nextStepTime=ctx.currentTime+.12;
+    clearInterval(seqTimer); seqTimer=setInterval(seqTick,25);
+  }else{
+    running=false;
+    powerBtn.dataset.on='0'; powerBtn.textContent='起動';
+    clearTimeout(eventTimer); clearTimeout(rootTimer); clearTimeout(grainTimer);
+    clearInterval(seqTimer); uiStep=-1; renderSteps();
+    apply();
+    if(recorder&&recorder.state==='recording') stopRec();
+    recBtn.disabled=true;
+  }
+});
+
+function stopRec(){ recorder.stop(); }
+recBtn.addEventListener('click',()=>{
+  if(!recorder||recorder.state==='inactive'){
+    chunks=[];
+    recorder=new MediaRecorder(streamDest.stream,{mimeType:'audio/webm'});
+    recorder.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
+    recorder.onstop=()=>{
+      const blob=new Blob(chunks,{type:'audio/webm'});
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download='elevator-one-'+new Date().toISOString().replace(/[:.]/g,'-')+'.webm';
+      a.click();
+      recBtn.dataset.on='0'; recBtn.textContent='録音';
+    };
+    recorder.start();
+    recBtn.dataset.on='1'; recBtn.textContent='停止 / 保存';
+  }else{
+    stopRec();
+  }
+});
+
+/* ---- ツールチップ ---- */
+const tipEl=document.getElementById('tip');
+let tipHost=null;
+function showTip(el){
+  const txt=el.dataset.tip;
+  if(!txt) return;
+  tipHost=el; tipEl.textContent=txt; tipEl.classList.add('on');
+  const r=el.getBoundingClientRect();
+  const tw=tipEl.offsetWidth, th=tipEl.offsetHeight;
+  let x=r.left, y=r.bottom+8;
+  if(y+th>innerHeight-8) y=Math.max(8, r.top-th-8);
+  if(x+tw>innerWidth-10) x=innerWidth-tw-10;
+  if(x<8) x=8;
+  tipEl.style.left=x+'px'; tipEl.style.top=y+'px';
+}
+function hideTip(){ tipHost=null; tipEl.classList.remove('on'); }
+const nearest=t=>(t && t.closest) ? t.closest('[data-tip]') : null;
+document.addEventListener('mouseover',e=>{ const el=nearest(e.target); if(el&&el!==tipHost) showTip(el); });
+document.addEventListener('mouseout', e=>{ const el=nearest(e.target); if(el&&el===tipHost) hideTip(); });
+document.addEventListener('focusin',  e=>{ const el=nearest(e.target); if(el) showTip(el); });
+document.addEventListener('focusout', hideTip);
+window.addEventListener('blur', hideTip);
+
+window.addEventListener('keydown',e=>{
+  if(e.code==='Space'&&e.target===document.body){ e.preventDefault(); powerBtn.click(); }
+});
+
+})();
+</script>
+</body>
+</html>
