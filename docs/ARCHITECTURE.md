@@ -18,11 +18,12 @@
    - オーディオグラフ構築（`build()`）
    - `apply()` — current値をオーディオグラフに反映
    - 単発の音（`ping`, `scheduleEvents`）
-   - 平滑化ループ（`setInterval` 100ms）
+   - 平滑化ループ（`smooth()`、100ms間隔）
    - シーケンサ（`playStep`, `seqTick`, `mutateBar`）
    - 展開＝コード進行（`chordBar`, `chordStep`, `PROGS`, `CHORD`, `RHY`）
    - UI生成（プリセットボタン、スライダー、シャッフル、ツールチップ）
    - XYパッドの描画ループ（`draw`, マリンスノー, 背景色 `seaColors`）
+   - バックグラウンド再生（`tick`, `startClock`, `routeToSink`, `setupMediaSession`）
    - 起動/停止/録音（`startEngine`, `stopEngine`, 自動起動）
    - 表示言語の適用（`applyI18n()`）— DOMが出揃ってから呼ぶので最後
 
@@ -56,7 +57,8 @@ XYパッド（明るさ/密度）も同じ仕組みに乗っている。`target.
 dry      … 直接音
 revSend  … コンボリューションリバーブ（impulse 7秒, decay 2.4）へ
 dlySend  … フィードバック付きディレイ（左右ではなくモノラル1系統、フィルタ付き）へ
-master   … dry/reverb/delay の合流点。DynamicsCompressor を経て destination とストリーム録音へ
+master   … dry/reverb/delay の合流点。DynamicsCompressor を経て出力へ
+           (出力先は destination か <audio> 要素。「バックグラウンド再生」節を見ること)
 ```
 
 ドローン、ノイズ、金属共鳴、質感チェーン、シーケンサ、展開パッド——すべて最終的に
@@ -102,8 +104,9 @@ droneBus → texIn(gain) → shaper(WaveShaper) → texHP → texLP → ringGate
 - 16ステップのパターン (`pattern[]`) は `reseed()` で生成。各ステップは `{on, deg, oct, acc}`
 - `playStep(i, time)` が実際の発音。音程は `rootMidi` と `c.weight` から算出した基準音に
   スケール度数 `st.deg` を足す。緊張度でスケール自体が2種類切り替わる
-- クロックは `seqTick()`。`AudioContext.currentTime` を基準に25ms間隔で先読みスケジュール
-  （`nextStepTime < ctx.currentTime + .15` の間ループで詰める、Web Audioのタイミング精度確保の定石）
+- クロックは `seqTick()`。`AudioContext.currentTime` を基準に約21ms間隔で先読みスケジュール
+  （`nextStepTime < ctx.currentTime + .15` の間ループで詰める、Web Audioのタイミング精度確保の定石）。
+  この間隔を刻んでいるのは AudioWorklet（「バックグラウンド再生」節）
 - 4ステップごと（`i % 4 === 0`）に低音パルスが `build.seq.bus` へ入る。**この経路は「音量」フェーダー
   (`seq`) の影響を受ける** よう `build.seq.bus` に接続している（旧バージョンで `dry` 直結になっていて
   フェーダーが効かないバグがあったため、修正済み）
@@ -179,6 +182,58 @@ I18N.ja / I18N.en  ──t(key)──▶  applyI18n()  ──▶  [data-i18n]   
 
 という二段構え。**ブラウザの自動再生ポリシーを回避する完全な方法は存在しない**ため、
 「開いたら必ず無音操作なしで鳴る」動作は保証できない。これは実装の不備ではなく制約。
+
+## バックグラウンド再生
+
+iOS の Safari は画面ロックやバックグラウンド遷移で、2つの別々のやり方で音を止めてくる。
+どちらも塞がないと鳴り続けない（Issue #6）。
+
+### 1. AudioContext が中断される — 出力を `<audio>` 要素へ移す
+
+`<audio>` / `<video>` 要素の再生は背景でも継続するが、Web Audio 単体は中断される。そこで
+発音開始時に `routeToSink()` が出力経路を差し替える。
+
+```
+comp ──▶ streamDest (MediaStreamDestination) ──▶ <audio>.srcObject   ← 差し替え後
+comp ──▶ ctx.destination                                             ← 差し替え前 / 失敗時
+```
+
+`streamDest` は録音用に元からあったものを共用している。iOS には `play()` が解決しても
+音が出ない事例があるため、**400ms 待って `currentTime` が進んだときだけ**成功とみなし、
+そのとき初めて `comp.disconnect(ctx.destination)` する。失敗したら `<audio>` を止めて
+destination へ繋ぎ直すので、対応していない環境でも従来どおり鳴る。
+
+あわせて `navigator.audioSession.type = 'playback'` の申告（発音ボタンを押した最初、
+`ctx` を作る前に行う）と、`MediaSession` のメタデータ / play / pause ハンドラ登録を行う。
+ロック画面やコントロールセンターに出る操作ボタンはこれ。
+
+### 2. `setInterval` / `setTimeout` が絞られる — 時計を音声スレッドへ移す
+
+背景ではタイマーが止まるので、たとえ音が続いてもシーケンサが進まなくなる。そこで
+`startClock()` が `AudioWorklet` を1つ立て、128フレーム × 8（約21ms）ごとに
+`port.postMessage` でメインスレッドの `tick()` を叩く。ワークレットのコードは単一ファイル
+構成を保つため Blob URL で読み込む（`CLOCK_SRC`）。
+
+`tick()` から呼ばれるもの:
+
+| | 間隔 |
+| --- | --- |
+| `smooth()` — target→current の平滑化、`apply()`、`readout()` | 100ms（`tick` 側で間引く） |
+| `seqTick()` — 16ステップの先読みスケジュール | 毎回 |
+| `runScheduled()` — 単発音 / グレイン / 根音の移動 | 毎回 |
+
+`runScheduled()` は `setTimeout` の連鎖をやめて `nextEventTime` / `nextGrainTime` /
+`nextRootTime`（すべて `ctx.currentTime` 基準）と現在時刻を突き合わせる方式にしてある。
+`scheduleEvents()` などは「次の予定時刻を決める」だけの関数になった。
+
+AudioWorklet が使えない環境では `setInterval(tick, 25)` へフォールバックする。ワークレット
+ノードは `comp` に繋いである（destination に繋ぐとテスト用プローブが誤検知するため。出力は無音）。
+
+### 検証できる範囲
+
+`tests/background.spec.js`（`background-chromium` / `background-webkit`）が確かめるのは
+「発音時に経路が期待どおり組まれたか」まで。**実機でロックしても鳴り続けるかどうかは
+自動テストでは確かめられない**ので、iPhone 実機での確認が要る。
 
 ## 既知の設計上の制約
 

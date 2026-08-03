@@ -1,5 +1,22 @@
 # Changelog
 
+## 未リリース
+
+- **iOS でバックグラウンド / 画面ロック中も再生が続くようにした** (Issue #6) — iOS の Safari は
+  Web Audio とタイマーの2つを止めにくるので、両方を塞いだ
+  - 出力を `MediaStreamDestination` 経由で `<audio>` 要素に流し、ページを「メディア再生中」として
+    扱わせる。実際に再生が進んだことを確認できたときだけ `ctx.destination` を切り離すので、
+    対応していない環境では従来の経路のまま鳴る
+  - `navigator.audioSession.type = 'playback'` の申告と `MediaSession` の登録を追加。
+    ロック画面 / コントロールセンターに再生・一時停止のボタンが出る
+  - スケジューリングの時計を `setInterval` から `AudioWorklet` に移した。バックグラウンドでの
+    タイマー制限を受けないため、シーケンサと単発音が止まらない。使えない環境では従来の
+    `setInterval` へフォールバックする
+  - 単発音 / グレイン / 根音移動の `setTimeout` 連鎖を、`ctx.currentTime` 基準の予定時刻を
+    突き合わせる方式に変更
+- テストに `background-chromium` / `background-webkit` project を追加。発音時に上記の経路が
+  組まれることを検証する (実機でのロック中再生は自動テストでは確かめられない)
+
 ## v1.2
 
 - **シャッフルを既定でONに変更** — 開いた時点から雰囲気が30秒ごとに切り替わる。
