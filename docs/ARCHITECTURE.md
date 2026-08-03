@@ -199,9 +199,13 @@ comp ──▶ ctx.destination                                             ← �
 ```
 
 `streamDest` は録音用に元からあったものを共用している。iOS には `play()` が解決しても
-音が出ない事例があるため、**400ms 待って `currentTime` が進んだときだけ**成功とみなし、
-そのとき初めて `comp.disconnect(ctx.destination)` する。失敗したら `<audio>` を止めて
-destination へ繋ぎ直すので、対応していない環境でも従来どおり鳴る。
+音が出ない事例があるため、**`currentTime` が実際に進んだときだけ**成功とみなす
+(`sinkAdvances()` が100ms間隔で最大1.5秒見る。固定待ちにすると負荷の高い端末で誤って
+失敗と判定してしまう)。成功したときに初めて `comp.disconnect(ctx.destination)` する。
+失敗したら `<audio>` を止めて destination へ繋ぎ直すので、対応していない環境でも従来どおり鳴る。
+
+判定中に発音を止められることがあるので、停止側は `sinkActive` の確定を待たずに
+`<audio>` を止め、判定側も成功時に `running` を見直す。
 
 あわせて `navigator.audioSession.type = 'playback'` の申告（発音ボタンを押した最初、
 `ctx` を作る前に行う）と、`MediaSession` のメタデータ / play / pause ハンドラ登録を行う。

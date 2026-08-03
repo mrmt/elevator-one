@@ -1464,6 +1464,17 @@ async function startClock(){
   clearInterval(fallbackTimer); fallbackTimer=setInterval(tick,25);
 }
 
+// 再生が実際に進み始めたかを最大1.5秒待って見る。
+// 固定待ちにすると負荷の高い端末で誤って失敗と判定してしまう
+async function sinkAdvances(){
+  const t0=sink.currentTime;
+  for(let i=0;i<15;i++){
+    await new Promise(r=>setTimeout(r,100));
+    if(sink.currentTime>t0) return true;
+  }
+  return false;
+}
+
 // 出力を <audio> 要素へ移す。実際に再生が進んだときだけ ctx.destination を切り離す。
 // iOS には play() が解決しても音が出ない事例があるため、currentTime の前進で確かめる
 async function routeToSink(){
@@ -1481,9 +1492,11 @@ async function routeToSink(){
   try{
     comp.disconnect(ctx.destination);   // 二重に鳴らさないため先に切る
     await sink.play();
-    const t0=sink.currentTime;
-    await new Promise(r=>setTimeout(r,400));
-    if(sink.currentTime>t0){ sinkActive=true; return true; }
+    if(await sinkAdvances()){
+      sinkActive=true;
+      if(!running) sink.pause();   // 判定中に発音が止められていた場合
+      return true;
+    }
   }catch(e){ /* 下のフォールバックへ */ }
   try{ sink.pause(); }catch(e){}
   comp.connect(ctx.destination);   // 元の経路へ戻す
@@ -1558,7 +1571,7 @@ powerBtn.addEventListener('click',async()=>{
     setPowerUI(false);
     uiStep=-1; renderSteps();
     apply();
-    if(sinkActive) sink.pause();
+    if(sink) sink.pause();   // 経路の判定中 (sinkActive未確定) でも止める
     if('mediaSession' in navigator) navigator.mediaSession.playbackState='paused';
     if(recorder&&recorder.state==='recording') stopRec();
     recBtn.disabled=true;

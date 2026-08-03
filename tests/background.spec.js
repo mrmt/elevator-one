@@ -27,10 +27,17 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
+// 出力先の <audio> が実際に鳴り出すまで待つ。
+// routeToSink() は再生が進むのを最大1.5秒見てから経路を確定するので、固定待ちにしない
+const waitForSink = page => page.waitForFunction(() => {
+  const el = document.querySelector('audio');
+  return !!el && !el.paused && el.currentTime > 0;
+}, null, { timeout: 8000 });
+
 test('発音すると出力が <audio> 要素へ移り、時計が AudioWorklet になる', async ({ page }) => {
   await page.goto('/index.html');
   await page.getByRole('button', { name: /発音|Sound/ }).click();
-  await page.waitForTimeout(2000);   // routeToSink() の再生確認 (400ms) を待つ
+  await waitForSink(page);
 
   const state = await page.evaluate(() => {
     const el = document.querySelector('audio');
@@ -70,7 +77,7 @@ test('発音を止めるとメディア要素も止まる', async ({ page }) => 
   await page.goto('/index.html');
   const power = page.getByRole('button', { name: /発音|Sound/ });
   await power.click();
-  await page.waitForTimeout(1500);
+  await waitForSink(page);
   await power.click();
   await page.waitForTimeout(300);
 
@@ -83,7 +90,7 @@ test('発音を止めるとメディア要素も止まる', async ({ page }) => 
 
   // 鳴らし直したときに <audio> が止まったままにならないこと
   await power.click();
-  await page.waitForTimeout(1000);
+  await waitForSink(page);
   const again = await page.evaluate(() => {
     const el = document.querySelector('audio');
     return { playing: !!el && !el.paused && el.currentTime > 0, mediaState: navigator.mediaSession?.playbackState };
