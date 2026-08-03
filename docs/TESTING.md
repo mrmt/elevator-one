@@ -19,6 +19,8 @@ npm test
 | project | 対象 | 実行するテスト |
 | --- | --- | --- |
 | `audio-chromium` | 音が鳴るか | `tests/audio.spec.js` |
+| `background-chromium` | バックグラウンド再生の経路 | `tests/background.spec.js` |
+| `background-webkit` | 同上 (iPhone 14 / WebKit) | `tests/background.spec.js` |
 | `desktop-chromium` | macOS 相当 (1440x900) | `tests/interaction.spec.js` |
 | `mobile-webkit` | iOS 相当 (iPhone 14 / WebKit、英語表示) | `tests/interaction.spec.js` |
 | `tablet-webkit` | iPadOS 相当 (iPad gen 7 / WebKit) | `tests/interaction.spec.js` |
@@ -43,6 +45,9 @@ WebKit は iOS/iPadOS Safari と同じエンジンなので、デバイスエミ
 - UI文字列に関わるもの → `tests/i18n.spec.js` に追加。カタログのキー集合テストと、DOMの
   `data-i18n*` がカタログに存在するかのテストがあるので、文字列を足しただけで訳し忘れや
   属性のタイポは落ちる
+- バックグラウンド再生に関わるもの → `tests/background.spec.js` に追加。`page.addInitScript()` で
+  `AudioWorkletNode` / `AudioNode.prototype.disconnect` / `setInterval` を包み、どの経路が選ばれたかを
+  `window.__probe` に記録している。ロック中に鳴り続けるかは自動テストでは分からないので、実機で見ること
 - 新しい環境を足したいとき (例: Android Chrome) → `playwright.config.js` の `projects` に追加する。`testMatch` でどの spec を走らせるか決まる
 
 数値の閾値を置くときは実測値をコメントに残しておくと、後から緩め過ぎ・厳し過ぎを判断しやすい。

@@ -34,6 +34,20 @@ export default defineConfig({
         launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
       },
     },
+    // バックグラウンド再生の経路。iOS が対象なのでWebKitでも走らせる
+    {
+      name: 'background-chromium',
+      testMatch: /background\.spec\.js/,
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
+      },
+    },
+    {
+      name: 'background-webkit',
+      testMatch: /background\.spec\.js/,
+      use: { ...devices['iPhone 14'] },
+    },
     // macOS相当。3カラムのデスクトップレイアウト
     {
       name: 'desktop-chromium',

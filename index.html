@@ -263,7 +263,7 @@
 <header>
   <div class="mark">Elevator One</div>
   <div class="sub">generative ambient / minimal / drone</div>
-  <div class="sub" style="opacity:.6">v1.2</div>
+  <div class="sub" style="opacity:.6">v1.3</div>
   <div class="transport">
     <button class="tbtn lang" id="lang" data-i18n-tip="tip.lang" data-i18n-aria="transport.lang">JA</button>
     <button class="tbtn toggle" id="power" data-on="0" aria-pressed="false" aria-label="発音" data-i18n-aria="transport.power" data-tip="発音のon/offを切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.power"><span class="led" aria-hidden="true"></span><span data-i18n="transport.power">発音</span><span class="tstate" aria-hidden="true">off</span></button>
@@ -345,6 +345,9 @@ ja: {
   'transport.recStop':'停止 / 保存',
   'transport.recUnsupported':'録音不可',
   'transport.lang':'表示言語を切り替える',
+
+  // ロック画面 / コントロールセンターに出る表示
+  'media.artist':'自動生成アンビエント',
 
   'tab.mood':'雰囲気',
   'tab.pad':'XYパッド',
@@ -444,6 +447,8 @@ en: {
   'transport.recStop':'Stop / Save',
   'transport.recUnsupported':'Unavailable',
   'transport.lang':'Switch display language',
+
+  'media.artist':'Generative ambient',
 
   'tab.mood':'mood',
   'tab.pad':'XY pad',
@@ -618,8 +623,15 @@ const TENSE     = [0, 1,  6, 13, 23];
 
 let ctx=null, master=null, dry=null, revSend=null, dlySend=null,
     voices=[], noise=null, metal=[], comp=null, streamDest=null,
-    recorder=null, chunks=[], running=false, ready=false, eventTimer=null,
-    rootMidi=33, rootTarget=33, rootTimer=null;
+    recorder=null, chunks=[], running=false, ready=false,
+    rootMidi=33, rootTarget=33;
+
+// 発火予定時刻はすべて ctx.currentTime 基準で持つ。
+// setTimeout はバックグラウンドで絞られるが、音声時計は絞られないため
+let nextEventTime=0, nextGrainTime=0, nextRootTime=0;
+
+// バックグラウンド再生まわり (詳細は「バックグラウンド再生」節)
+let clockNode=null, sink=null, sinkActive=false;
 
 const lerp=(a,b,t)=>a+(b-a)*t;
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
@@ -933,13 +945,10 @@ function ping(){
 }
 
 function scheduleEvents(){
-  clearTimeout(eventTimer);
   const mean=expMap(1-current.density,2.0,48);
-  const wait=mean*rand(.35,1.9);
-  eventTimer=setTimeout(()=>{ ping(); scheduleEvents(); }, wait*1000);
+  nextEventTime=ctx.currentTime+mean*rand(.35,1.9);
 }
 
-let grainTimer=null;
 function grain(){
   if(!running||!ctx) return;
   const c=current;
@@ -962,26 +971,31 @@ function grain(){
   setTimeout(()=>{try{pan.disconnect()}catch(e){}}, (dur+1)*1000);
 }
 function scheduleGrains(){
-  clearTimeout(grainTimer);
-  const wait=expMap(1-current.grit*GRIT_MAX,.03,3.0)*rand(.35,1.9);
-  grainTimer=setTimeout(()=>{ grain(); scheduleGrains(); }, wait*1000);
+  nextGrainTime=ctx.currentTime+expMap(1-current.grit*GRIT_MAX,.03,3.0)*rand(.35,1.9);
 }
 
 function scheduleRoot(){
-  clearTimeout(rootTimer);
-  rootTimer=setTimeout(()=>{
-    if(running && autoDrift){
+  nextRootTime=ctx.currentTime+rand(35,110);
+}
+
+// 音声時計から毎チック呼ばれ、期限の来た予定を実行する
+function runScheduled(){
+  const now=ctx.currentTime;
+  if(now>=nextEventTime){ ping(); scheduleEvents(); }
+  if(now>=nextGrainTime){ grain(); scheduleGrains(); }
+  if(now>=nextRootTime){
+    if(autoDrift){
       const step=[-5,-3,-2,0,2,3,5][Math.floor(Math.random()*7)];
       rootTarget=clamp(rootMidi+step,26,45);
     }
     scheduleRoot();
-  }, rand(35,110)*1000);
+  }
 }
 
 /* ============================================================
    シーケンサ（16ステップ / ベルリン・スクール）
    ============================================================ */
-let pattern=[], stepIdx=0, nextStepTime=0, seqTimer=null, uiStep=-1;
+let pattern=[], stepIdx=0, nextStepTime=0, uiStep=-1;
 
 function reseed(){
   pattern=[];
@@ -1131,9 +1145,11 @@ function chordStep(i,time){
 /* ============================================================
    平滑化ループ
    ============================================================ */
-let last=performance.now();
-setInterval(()=>{
-  const now=performance.now(), dt=(now-last)/1000; last=now;
+let last=performance.now(), smoothAt=0;
+function smooth(){
+  const now=performance.now();
+  const dt=Math.min(.5,(now-last)/1000); last=now;   // 復帰直後の巨大なdtで値が飛ばないように抑える
+  smoothAt=now;
   const tau=Math.max(1,glide)/3;
   const k=1-Math.exp(-dt/tau);
   for(const key in P) current[key]+= (target[key]-current[key])*k;
@@ -1148,7 +1164,10 @@ setInterval(()=>{
   }
   apply();
   readout();
-}, 100);
+}
+// 音声時計が止まっている間 (発音前、AudioContextの中断中) の受け皿。
+// 時計が回っていれば smoothAt が更新され続けるので、ここは何もしない
+setInterval(()=>{ if(performance.now()-smoothAt>=250) smooth(); }, 100);
 
 /* ============================================================
    UI
@@ -1387,6 +1406,119 @@ function readout(){
 }
 seaColors();
 
+/* ============================================================
+   バックグラウンド再生
+   ------------------------------------------------------------
+   iOS の Safari は画面ロックやバックグラウンド遷移で2つの止め方をしてくる。
+
+   1. AudioContext 自体が中断される
+      → 出力を MediaStreamDestination 経由で <audio> 要素に流し、
+        ページを「メディア再生中」として扱わせる。あわせて
+        navigator.audioSession と MediaSession も申告する
+   2. setInterval / setTimeout が絞られて止まる
+      → シーケンサとイベント予約の時計を AudioWorklet に移す。
+        こちらは音声スレッドで回るのでタイマー制限を受けない
+
+   どちらも対応していない環境では従来どおり ctx.destination と
+   setInterval にフォールバックする
+   ============================================================ */
+
+// 音声スレッド上で約21msごとにメインスレッドを叩くだけのプロセッサ。
+// 単一ファイル構成を保つため Blob URL で読み込む
+const CLOCK_SRC=`
+class ClockProcessor extends AudioWorkletProcessor {
+  constructor(){ super(); this.n=0; }
+  process(){
+    if(++this.n>=8){ this.n=0; this.port.postMessage(0); }   // 128フレーム × 8
+    return true;
+  }
+}
+registerProcessor('clock', ClockProcessor);
+`;
+
+function tick(){
+  if(!ctx) return;
+  if(performance.now()-smoothAt>=100) smooth();   // 平滑化とUI更新は100ms間隔で十分
+  if(!running) return;
+  seqTick();
+  runScheduled();
+}
+
+let fallbackTimer=null;
+async function startClock(){
+  if(clockNode) return;
+  if(ctx.audioWorklet){
+    const url=URL.createObjectURL(new Blob([CLOCK_SRC],{type:'text/javascript'}));
+    try{
+      await ctx.audioWorklet.addModule(url);
+      clockNode=new AudioWorkletNode(ctx,'clock',{numberOfInputs:0,numberOfOutputs:1,outputChannelCount:[1]});
+      clockNode.port.onmessage=tick;
+      clockNode.connect(comp);   // 繋がないと process が呼ばれない。出力は無音なので混ざらない
+      return;
+    }catch(e){
+      clockNode=null;
+    }finally{
+      URL.revokeObjectURL(url);
+    }
+  }
+  clearInterval(fallbackTimer); fallbackTimer=setInterval(tick,25);
+}
+
+// 再生が実際に進み始めたかを最大1.5秒待って見る。
+// 固定待ちにすると負荷の高い端末で誤って失敗と判定してしまう
+async function sinkAdvances(){
+  const t0=sink.currentTime;
+  for(let i=0;i<15;i++){
+    await new Promise(r=>setTimeout(r,100));
+    if(sink.currentTime>t0) return true;
+  }
+  return false;
+}
+
+// 出力を <audio> 要素へ移す。実際に再生が進んだときだけ ctx.destination を切り離す。
+// iOS には play() が解決しても音が出ない事例があるため、currentTime の前進で確かめる
+async function routeToSink(){
+  if(sinkActive){                       // 経路は決定済み。停止からの再開だけ面倒を見る
+    if(sink.paused) try{ await sink.play(); }catch(e){}
+    return true;
+  }
+  if(!sink){
+    sink=document.createElement('audio');
+    sink.setAttribute('playsinline','');
+    sink.autoplay=true;
+    sink.srcObject=streamDest.stream;
+    document.body.appendChild(sink);   // 文書外の要素はiOSでの扱いが不安定なので繋いでおく
+  }
+  try{
+    comp.disconnect(ctx.destination);   // 二重に鳴らさないため先に切る
+    await sink.play();
+    if(await sinkAdvances()){
+      sinkActive=true;
+      if(!running) sink.pause();   // 判定中に発音が止められていた場合
+      return true;
+    }
+  }catch(e){ /* 下のフォールバックへ */ }
+  try{ sink.pause(); }catch(e){}
+  comp.connect(ctx.destination);   // 元の経路へ戻す
+  return false;
+}
+
+function setupMediaSession(){
+  if(!('mediaSession' in navigator)) return;
+  try{
+    navigator.mediaSession.metadata=new MediaMetadata({title:'Elevator One', artist:t('media.artist')});
+    navigator.mediaSession.setActionHandler('play', ()=>{ if(!running) powerBtn.click(); });
+    navigator.mediaSession.setActionHandler('pause',()=>{ if(running) powerBtn.click(); });
+  }catch(e){}
+}
+
+// 前面に戻ったときに中断されたままなら復帰させる
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState!=='visible' || !running || !ctx) return;
+  if(ctx.state!=='running') ctx.resume().catch(()=>{});
+  if(sinkActive && sink.paused) sink.play().catch(()=>{});
+});
+
 /* ---- 発音 / 録音 ---- */
 const powerBtn=document.getElementById('power');
 const powerState=powerBtn.querySelector('.tstate');
@@ -1421,6 +1553,8 @@ function updateRecLabel(){
 
 powerBtn.addEventListener('click',async()=>{
   if(!running){
+    // 「メディア再生」として申告してから鳴らす。順序を守らないとiOSで効かない
+    if(navigator.audioSession) try{ navigator.audioSession.type='playback'; }catch(e){}
     if(!ctx) build();
     await ctx.resume();
     running=true;
@@ -1428,13 +1562,17 @@ powerBtn.addEventListener('click',async()=>{
     recBtn.disabled=!REC_MIME;
     scheduleEvents(); scheduleRoot(); scheduleGrains();
     stepIdx=0; barCount=-1; chordPos=-1; nextStepTime=ctx.currentTime+.12;
-    clearInterval(seqTimer); seqTimer=setInterval(seqTick,25);
+    await startClock();
+    routeToSink().catch(()=>{});   // 完了を待たない (待つと最初の音が遅れる)
+    setupMediaSession();
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState='playing';
   }else{
     running=false;
     setPowerUI(false);
-    clearTimeout(eventTimer); clearTimeout(rootTimer); clearTimeout(grainTimer);
-    clearInterval(seqTimer); uiStep=-1; renderSteps();
+    uiStep=-1; renderSteps();
     apply();
+    if(sink) sink.pause();   // 経路の判定中 (sinkActive未確定) でも止める
+    if('mediaSession' in navigator) navigator.mediaSession.playbackState='paused';
     if(recorder&&recorder.state==='recording') stopRec();
     recBtn.disabled=true;
   }
@@ -1506,6 +1644,7 @@ function applyI18n(){
   for(const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label',t(el.dataset.i18nAria));
   langBtn.textContent=lang.toUpperCase();
   updateRecLabel();
+  if('mediaSession' in navigator && navigator.mediaSession.metadata) setupMediaSession();
   hideTip();   // 表示中のツールチップが旧言語のまま残らないように
 }
 langBtn.addEventListener('click',()=>{
