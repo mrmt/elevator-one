@@ -105,6 +105,19 @@ test.describe('狭幅 (iOS / iPadOS)', () => {
   test('タブバーが表示される', async ({ page }) => {
     await expect(page.locator('#tabs')).toBeVisible();
   });
+
+  // タブ自体が XY パッドであることを示すので、見出し行は重複
+  test('XYパッドの見出し行は出ない', async ({ page }) => {
+    await expect(page.locator('#tab-pad > .eyebrow')).toBeHidden();
+  });
+});
+
+test.describe('デスクトップ (macOS)', () => {
+  test.skip(({ viewport }) => viewport.width <= 900, 'デスクトップ幅のみ');
+
+  test('XYパッドの見出し行が出る', async ({ page }) => {
+    await expect(page.locator('#tab-pad > .eyebrow')).toBeVisible();
+  });
 });
 
 test.describe('デスクトップ (macOS)', () => {
