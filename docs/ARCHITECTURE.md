@@ -139,6 +139,10 @@ droneBus → texIn(gain) → shaper(WaveShaper) → texHP → texLP → ringGate
 - ツールチップは `data-tip` 属性 + 単一の `#tip` 要素を使い回すグローバル委譲方式
   （`mouseover`/`mouseout`/`focusin`/`focusout` をdocumentに1回だけ登録）。
   新しい操作要素にツールチップを足したいときは `data-tip="説明文"` を属性に足すだけでよい
+- ツールチップは表示から5秒 (`TIP_LIFE_MS`) で自動的に消える。ポインタを止めていると `mouseout` が
+  来ず出しっぱなしになるため (Issue #11)。自動消滅だけは `#tip.fade` で
+  0.9秒かけてゆっくり畳み、hover を外したときの 0.12s と区別している。
+  消えたあともポインタを動かせば `mouseover` が来て出し直せる
 
 ## 表示言語（ja / en）
 

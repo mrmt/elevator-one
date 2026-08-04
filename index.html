@@ -173,6 +173,8 @@
     padding:.45rem .65rem;opacity:0;transition:opacity .12s;
   }
   #tip.on{opacity:1}
+  /* 出しっぱなしを避ける自動消滅はゆっくり (Issue #11)。hover を外したときの .12s とは別扱い */
+  #tip.fade{transition:opacity .9s}
 
   /* ---- params ---- */
   .param{margin-bottom:.62rem}
@@ -1622,9 +1624,14 @@ tabBtns.forEach(b=>b.addEventListener('click',()=>{
 /* ---- ツールチップ ---- */
 const tipEl=document.getElementById('tip');
 let tipHost=null;
+// ポインタを動かさないと mouseout が来ないので、出しっぱなしにならないよう自分で畳む (Issue #11)
+const TIP_LIFE_MS=5000;
+let tipTimer=0;
 function showTip(el){
   const txt=el.dataset.tip;
   if(!txt) return;
+  clearTimeout(tipTimer);
+  tipEl.classList.remove('fade');
   tipHost=el; tipEl.textContent=txt; tipEl.classList.add('on');
   const r=el.getBoundingClientRect();
   const tw=tipEl.offsetWidth, th=tipEl.offsetHeight;
@@ -1633,8 +1640,11 @@ function showTip(el){
   if(x+tw>innerWidth-10) x=innerWidth-tw-10;
   if(x<8) x=8;
   tipEl.style.left=x+'px'; tipEl.style.top=y+'px';
+  tipTimer=setTimeout(fadeTip, TIP_LIFE_MS);
 }
-function hideTip(){ tipHost=null; tipEl.classList.remove('on'); }
+// 自動消滅。ポインタを動かせば mouseover が来て出し直せる
+function fadeTip(){ tipHost=null; tipEl.classList.add('fade'); tipEl.classList.remove('on'); }
+function hideTip(){ clearTimeout(tipTimer); tipHost=null; tipEl.classList.remove('on','fade'); }
 // 引数名は t() (翻訳) と紛れないように node
 const nearest=node=>(node && node.closest) ? node.closest('[data-tip]') : null;
 document.addEventListener('mouseover',e=>{ const el=nearest(e.target); if(el&&el!==tipHost) showTip(el); });

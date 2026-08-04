@@ -97,6 +97,48 @@ test('シャッフルが既定でONになっている', async ({ page }, testInf
   await expect(page.locator('.preset[aria-pressed="true"]')).toHaveCount(1);
 });
 
+test.describe('ツールチップ', () => {
+  test.skip(({ hasTouch }) => hasTouch, 'hover のあるプロファイルのみ');
+
+  const opacity = (page) =>
+    page.locator('#tip').evaluate((el) => parseFloat(getComputedStyle(el).opacity));
+
+  test('hover で出て、5秒でゆっくり消える', async ({ page }) => {
+    // ポインタを動かさないと mouseout が来ないので出しっぱなしになっていた (Issue #11)
+    await page.locator('#power').hover();
+    await expect(page.locator('#tip')).toHaveClass(/\bon\b/);
+    await expect(page.locator('#tip')).toHaveText(/.+/);
+    // フェードイン (.12s) を待ってから測る
+    await expect.poll(() => opacity(page), { timeout: 2000 }).toBe(1);
+
+    // 4秒の時点ではまだ出ている (寿命は5秒)
+    await page.waitForTimeout(4000);
+    expect(await opacity(page)).toBeGreaterThan(0.9);
+
+    // 5秒を越えるとフェードが始まり、0.9秒かけて消える
+    await page.waitForTimeout(1500);
+    expect(await opacity(page)).toBeLessThan(0.9);
+    await expect.poll(() => opacity(page), { timeout: 3000 }).toBe(0);
+  });
+
+  test('ポインタを外すとすぐ消える', async ({ page }) => {
+    await page.locator('#power').hover();
+    await expect(page.locator('#tip')).toHaveClass(/\bon\b/);
+    await page.locator('.mark').hover();
+    await expect.poll(() => opacity(page), { timeout: 2000 }).toBe(0);
+  });
+
+  test('消えたあと同じ要素に hover し直すと出る', async ({ page }) => {
+    await page.locator('#power').hover();
+    await page.waitForTimeout(6500);
+    expect(await opacity(page)).toBe(0);
+    await page.locator('.mark').hover();
+    await page.locator('#power').hover();
+    await expect(page.locator('#tip')).toHaveClass(/\bon\b/);
+    await expect.poll(() => opacity(page), { timeout: 2000 }).toBe(1);
+  });
+});
+
 test.describe('狭幅 (iOS / iPadOS)', () => {
   test.skip(({ viewport }) => viewport.width > 900, '狭幅レイアウトのみ');
 
