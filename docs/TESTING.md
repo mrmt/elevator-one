@@ -12,6 +12,15 @@ npm test
 
 `npm test` は `playwright.config.js` の `webServer` 設定に従って `python3 -m http.server 8123` を自動で起動する。ブラウザ上でテストを追いたいときは `npm run test:ui`。
 
+## CI のログ
+
+CI では `github` / `list` / `html` の3つの reporter を使う。`github` は失敗箇所を差分に注釈するだけで
+進捗を出さないため、`list` を併用して「どの project のどのテストが通ったか」を1行ずつ流している
+(Issue #17)。`html` レポートは失敗時のみ artifact `playwright-report` として残る。
+
+配信に使う `python3 -m http.server` はアクセスログを **stderr** に出すので、`webServer` の
+`stdout` と `stderr` の両方を `ignore` にしてある。片方だけだとログが `[WebServer]` の行で埋まる。
+
 ## プロジェクト構成
 
 `playwright.config.js` の `projects` が検証対象の環境を表す。
