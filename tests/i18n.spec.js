@@ -70,6 +70,11 @@ test.describe('切り替えと永続化', () => {
 
     expect(await page.evaluate((k) => localStorage.getItem(k), LANG_KEY)).toBe('ja');
 
+    // ヘッダーの mood 名とブラウザのタイトルも訳し直される (Issue #12)
+    const mood = await page.locator('#mood').textContent();
+    expect(mood).toMatch(/[ぁ-んァ-ヶ一-龠]/);
+    await expect(page).toHaveTitle(`Elevator One — ${mood}`);
+
     await page.reload();
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
     await expect(page.locator('#lang')).toHaveText('JA');

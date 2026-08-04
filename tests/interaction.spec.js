@@ -97,6 +97,62 @@ test('シャッフルが既定でONになっている', async ({ page }, testInf
   await expect(page.locator('.preset[aria-pressed="true"]')).toHaveCount(1);
 });
 
+test.describe('現在の mood の表示', () => {
+  // シャッフル中は mood タブを開かないと何が鳴っているのか分からなかった (Issue #12)
+  const moodText = (page) => page.locator('#mood').textContent();
+
+  test('ヘッダーのバージョンの右に出て、ブラウザのタイトルにも入る', async ({ page }) => {
+    const mood = await moodText(page);
+    expect(mood).not.toBe('');
+    await expect(page).toHaveTitle(`Elevator One — ${mood}`);
+
+    // 並び順は タイトル → バージョン → mood
+    const mark = await page.locator('.mark').boundingBox();
+    const ver = await page.locator('#ver').boundingBox();
+    const box = await page.locator('#mood').boundingBox();
+    expect(ver.x).toBeGreaterThan(mark.x + mark.width - 2);
+    expect(box.x).toBeGreaterThan(ver.x + ver.width - 2);
+    expect(box.y).toBeGreaterThanOrEqual(mark.y);
+    expect(box.y).toBeLessThan(mark.y + mark.height);
+  });
+
+  test('パラメータを手で変えると末尾に (edit) が付く', async ({ page }, testInfo) => {
+    const before = await moodText(page);
+    expect(before).not.toMatch(/\(edit\)$/);
+
+    // XYパッドの操作はどのプロファイルでも既定のタブでできる
+    const box = await page.locator('#plane').boundingBox();
+    const x = box.x + box.width * 0.85;
+    const y = box.y + box.height * 0.2;
+    if (isTouch(testInfo)) {
+      await page.touchscreen.tap(x, y);
+    } else {
+      await page.mouse.move(x, y);
+      await page.mouse.down();
+      await page.mouse.up();
+    }
+
+    await expect(page.locator('#mood')).toHaveText(`${before} (edit)`);
+    await expect(page).toHaveTitle(`Elevator One — ${before} (edit)`);
+  });
+
+  test('プリセットを選び直すと (edit) が外れてその名前になる', async ({ page }, testInfo) => {
+    const box = await page.locator('#plane').boundingBox();
+    if (isTouch(testInfo)) {
+      await page.touchscreen.tap(box.x + box.width * 0.8, box.y + box.height * 0.3);
+      await page.locator('#tabs .tab[data-tab="mood"]').tap();
+    } else {
+      await page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.3);
+    }
+    await expect(page.locator('#mood')).toHaveText(/\(edit\)$/);
+
+    const preset = page.locator('.preset[aria-pressed]').first();
+    const name = await preset.locator('span').first().textContent();
+    await preset.click();
+    await expect(page.locator('#mood')).toHaveText(name);
+  });
+});
+
 test.describe('ツールチップ', () => {
   test.skip(({ hasTouch }) => hasTouch, 'hover のあるプロファイルのみ');
 

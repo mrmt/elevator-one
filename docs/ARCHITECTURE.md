@@ -136,6 +136,12 @@ droneBus → texIn(gain) → shaper(WaveShaper) → texHP → texLP → ringGate
   すべて `stopShuffle()` を呼び、シャッフル中の自動切り替えを止める
 - シャッフルは読み込み時に `startShuffle()` を呼んで既定でONにしてある。放置しても雰囲気が
   変わり続けるのが既定の体験で、手動操作をした時点でOFFになる
+- 現在の mood は `updateMood()` が3か所へ同時に反映する（ヘッダーの `#mood` /
+  `document.title` / `MediaMetadata`）。`applyPreset()` が `moodIdx` を更新して
+  `moodEdited` を落とし、手動操作で呼ばれる `clearPresetHighlight()` が `moodEdited` を立てる。
+  立っている間は表示名の末尾に ` (edit)` が付く（Issue #12）
+- バージョン文字列は JS の `VERSION` 定数が単一のソース。ヘッダーの `#ver` と
+  `MediaMetadata.artist` の両方がここから作られるので、上げるときは1か所だけ直せばよい
 - ツールチップは `data-tip` 属性 + 単一の `#tip` 要素を使い回すグローバル委譲方式
   （`mouseover`/`mouseout`/`focusin`/`focusout` をdocumentに1回だけ登録）。
   新しい操作要素にツールチップを足したいときは `data-tip="説明文"` を属性に足すだけでよい
@@ -214,6 +220,10 @@ comp ──▶ ctx.destination                                             ← �
 あわせて `navigator.audioSession.type = 'playback'` の申告（発音ボタンを押した最初、
 `ctx` を作る前に行う）と、`MediaSession` のメタデータ / play / pause ハンドラ登録を行う。
 ロック画面やコントロールセンターに出る操作ボタンはこれ。
+
+`MediaMetadata` の `title` には現在の mood、`artist` にはアプリ名とバージョン
+（`Elevator One v1.3`）を入れる。ロック画面と CarPlay に出るのはこの2つだけなので、
+mood が変わるたびに `updateMediaMetadata()` で差し替えている（Issue #12）。
 
 ### 2. `setInterval` / `setTimeout` が絞られる — 時計を音声スレッドへ移す
 
