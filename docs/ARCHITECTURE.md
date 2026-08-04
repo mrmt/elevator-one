@@ -136,6 +136,10 @@ droneBus → texIn(gain) → shaper(WaveShaper) → texHP → texLP → ringGate
   すべて `stopShuffle()` を呼び、シャッフル中の自動切り替えを止める
 - シャッフルは読み込み時に `startShuffle()` を呼んで既定でONにしてある。放置しても雰囲気が
   変わり続けるのが既定の体験で、手動操作をした時点でOFFになる
+- XYパッド上の数値表示 (`.overlay`) は既定で縦に4つ積む。iOS の landscape のようにパッドが
+  横長 (アスペクト比2以上) になると縦に入りきらないので、`.plane` をコンテナにした
+  `@container pad (min-aspect-ratio: 2/1)` で2列2行に折り返す (Issue #21)。
+  コンテナクエリ非対応の環境では従来どおり縦積みのまま
 - 現在の mood は `updateMood()` が3か所へ同時に反映する（ヘッダーの `#mood` /
   `document.title` / `MediaMetadata`）。`applyPreset()` が `moodIdx` を更新して
   `moodEdited` を落とし、手動操作で呼ばれる `clearPresetHighlight()` が `moodEdited` を立てる。
