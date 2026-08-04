@@ -8,7 +8,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',
+  // CI でも list を混ぜる。github reporter は失敗時の注釈しか出さないため、
+  // これがないとログから「いまどのテストを実行しているか」が分からない (Issue #17)
+  reporter: process.env.CI
+    ? [['github'], ['list'], ['html', { open: 'never' }]]
+    : 'list',
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: 'on-first-retry',
@@ -22,6 +26,9 @@ export default defineConfig({
     url: `http://127.0.0.1:${PORT}/index.html`,
     reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
+    // http.server はアクセスログを stderr に出す。これを止めないと
+    // テストの進捗が [WebServer] の行に埋もれる (Issue #17)
+    stderr: 'ignore',
   },
 
   projects: [
