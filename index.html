@@ -239,6 +239,8 @@
     main[data-tab="mood"] #tab-mood,
     main[data-tab="sound"] #tab-sound{display:block}
     main[data-tab="pad"] #tab-pad{display:flex;flex-direction:column}
+    /* タブ自体が XY パッドであることを示すので、見出し行は省いて表示領域を稼ぐ */
+    #tab-pad>.eyebrow{display:none}
     .overlay{font-size:1rem;padding:0 1rem}
     footer{padding:.42rem .8rem}
     footer .note{display:none}
