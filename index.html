@@ -2,7 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- viewport-fit=cover: 指定しないと iOS はページ全体をセーフエリア内に押し込むため、
+     landscape で上下左右に余白が出る (Issue #9)。余白の回避は body の padding で行う -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>ELEVATOR ONE</title>
 <style>
   :root{
@@ -29,6 +31,9 @@
     -webkit-font-smoothing:antialiased;
     display:flex;flex-direction:column;
     height:100dvh;overflow:hidden;
+    /* ノッチ / ホームインジケータを避ける。背景は padding 領域まで塗られるので画面全体に広がる */
+    padding:env(safe-area-inset-top) env(safe-area-inset-right)
+            env(safe-area-inset-bottom) env(safe-area-inset-left);
   }
   button{font-family:inherit;color:inherit;background:none;border:none;cursor:pointer}
   :focus-visible{outline:2px solid var(--amber);outline-offset:2px}

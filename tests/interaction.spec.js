@@ -134,15 +134,38 @@ test.describe('デスクトップ (macOS)', () => {
   test('XYパッドの見出し行が出る', async ({ page }) => {
     await expect(page.locator('#tab-pad > .eyebrow')).toBeVisible();
   });
-});
-
-test.describe('デスクトップ (macOS)', () => {
-  test.skip(({ viewport }) => viewport.width <= 900, 'デスクトップ幅のみ');
 
   test('3カラムが同時に見えていてタブバーは出ない', async ({ page }) => {
     await expect(page.locator('#tabs')).toBeHidden();
     for (const section of ['#tab-mood', '#tab-pad', '#tab-sound']) {
       await expect(page.locator(section)).toBeVisible();
     }
+  });
+});
+
+test.describe('iOS landscape', () => {
+  test.skip(({ hasTouch }) => !hasTouch, 'タッチ端末プロファイルのみ');
+
+  // iPhone 16 landscape 相当
+  test.use({ viewport: { width: 874, height: 402 } });
+
+  test('viewport-fit=cover を指定している', async ({ page }) => {
+    // 指定しないと iOS はページをセーフエリア内に押し込み、上に余白が出る (Issue #9)
+    const meta = await page.locator('meta[name="viewport"]').getAttribute('content');
+    expect(meta).toContain('viewport-fit=cover');
+  });
+
+  test('セーフエリアを避けても上端に余白が出ず1画面に収まる', async ({ page }) => {
+    // safe-area の値は WebKit のエミュレーションでは 0 になるため、
+    // 実機 (iPhone 16 landscape: 左右59px / 下21px、上は0) の inset を手で当てて確かめる
+    await page.evaluate(() => { document.body.style.padding = '0 59px 21px 59px'; });
+    const header = await page.locator('header').boundingBox();
+    expect(header.y).toBe(0);
+    expect(header.x).toBe(59);
+    const { scrollHeight, clientHeight } = await page.evaluate(() => ({
+      scrollHeight: document.scrollingElement.scrollHeight,
+      clientHeight: document.scrollingElement.clientHeight,
+    }));
+    expect(scrollHeight).toBeLessThanOrEqual(clientHeight + 1);
   });
 });
