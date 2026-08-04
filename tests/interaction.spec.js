@@ -29,6 +29,22 @@ test('ヘッダーのボタンとXYパッドがビューポート内に収まる
   }
 });
 
+test('バージョンがタイトルの右に表示される', async ({ page }) => {
+  // 狭幅ではタグラインを省くが、バージョンだけは全プロファイルで残す (Issue #8)
+  const ver = page.locator('.ver');
+  await expect(ver).toBeVisible();
+  await expect(ver).toHaveText(/^v\d+\.\d+/);
+  const mark = await page.locator('.mark').boundingBox();
+  const box = await ver.boundingBox();
+  // タイトルの右、かつ同じ行にある
+  expect(box.x).toBeGreaterThanOrEqual(mark.x + mark.width - 2);
+  expect(box.y).toBeGreaterThanOrEqual(mark.y);
+  expect(box.y).toBeLessThan(mark.y + mark.height);
+  // タイトルより小さい文字
+  const size = (sel) => page.locator(sel).evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
+  expect(await size('.ver')).toBeLessThan(await size('.mark'));
+});
+
 test('XYパッドが操作に足るサイズを持つ', async ({ page }) => {
   // セクションが1画面に詰め込まれるとパッドが潰れて事実上操作できなくなる (Issue #2)。
   // 実測値は iPhone 375px / iPad 821px / desktop 662px、潰れると 111px まで縮む
