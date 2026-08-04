@@ -57,6 +57,26 @@ test('発音すると出力が <audio> 要素へ移り、時計が AudioWorklet 
   expect(state.hasMetadata).toBe(true);   // ロック画面に出す情報を申告した
 });
 
+// ロック画面 / CarPlay に出る情報。中身は MediaMetadata がすべて (Issue #12)
+test('MediaMetadata に現在の mood とアプリ名が入る', async ({ page }) => {
+  await page.goto('/index.html');
+  const mood = await page.locator('#mood').textContent();
+  await page.getByRole('button', { name: /発音|Sound/ }).click();
+  await waitForSink(page);
+
+  const meta = () => page.evaluate(() => {
+    const m = navigator.mediaSession?.metadata;
+    return m && { title: m.title, artist: m.artist };
+  });
+  expect(await meta()).toEqual({ title: mood, artist: 'Elevator One v1.3' });
+
+  // 手で値を変えると (edit) が付き、ロック画面側にも伝わる
+  const box = await page.locator('#plane').boundingBox();
+  await page.mouse.click(box.x + box.width * 0.8, box.y + box.height * 0.3);
+  await expect(page.locator('#mood')).toHaveText(`${mood} (edit)`);
+  expect((await meta()).title).toBe(`${mood} (edit)`);
+});
+
 test('音声時計がシーケンサを進め続ける', async ({ page }) => {
   await page.goto('/index.html');
   await page.getByRole('button', { name: /発音|Sound/ }).click();

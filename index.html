@@ -50,6 +50,8 @@
   }
   .sub{font-size:.68rem;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
   .ver{opacity:.6}
+  /* 現在の mood。シャッフル中も何が鳴っているか分かるように少しだけ立たせる (Issue #12) */
+  .mood{color:var(--amber);opacity:.85}
   .transport{margin-left:auto;display:flex;gap:.55rem;align-items:center;flex-shrink:0}
   .tbtn{
     border:1px solid var(--line);
@@ -236,8 +238,8 @@
     body{overscroll-behavior:none}
     header{gap:.6rem;padding:.6rem .8rem .55rem}
     /* タグラインは省くが、バージョンはタイトルの右に小さく残す */
-    header .sub:not(.ver){display:none}
-    .ver{font-size:.6rem;letter-spacing:.12em}
+    header .tagline{display:none}
+    .ver,.mood{font-size:.6rem;letter-spacing:.12em}
     /* 言語ボタンが増えた分、transport が1行に収まるよう詰める */
     .transport{gap:.4rem}
     .tbtn{padding:.5rem .8rem}
@@ -274,8 +276,10 @@
 
 <header>
   <div class="mark">Elevator One</div>
-  <div class="sub">generative ambient / minimal / drone</div>
-  <div class="sub ver">v1.3</div>
+  <div class="sub tagline">generative ambient / minimal / drone</div>
+  <div class="sub ver" id="ver"></div>
+  <!-- 現在の mood。中身は updateMood() が入れる -->
+  <div class="sub mood" id="mood"></div>
   <div class="transport">
     <button class="tbtn lang" id="lang" data-i18n-tip="tip.lang" data-i18n-aria="transport.lang">JA</button>
     <button class="tbtn toggle" id="power" data-on="0" aria-pressed="false" aria-label="発音" data-i18n-aria="transport.power" data-tip="発音のon/offを切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.power"><span class="led" aria-hidden="true"></span><span data-i18n="transport.power">発音</span><span class="tstate" aria-hidden="true">off</span></button>
@@ -359,7 +363,6 @@ ja: {
   'transport.lang':'表示言語を切り替える',
 
   // ロック画面 / コントロールセンターに出る表示
-  'media.artist':'自動生成アンビエント',
 
   'tab.mood':'雰囲気',
   'tab.pad':'XYパッド',
@@ -460,7 +463,6 @@ en: {
   'transport.recUnsupported':'Unavailable',
   'transport.lang':'Switch display language',
 
-  'media.artist':'Generative ambient',
 
   'tab.mood':'mood',
   'tab.pad':'XY pad',
@@ -1185,11 +1187,30 @@ setInterval(()=>{ if(performance.now()-smoothAt>=250) smooth(); }, 100);
    UI
    ============================================================ */
 const presetsEl=document.getElementById('presets');
+
+/* ---- 現在の mood ---- */
+// シャッフル中は mood タブを開かないと何が鳴っているのか分からなかった (Issue #12)。
+// ヘッダー / ブラウザのタイトル / MediaMetadata (ロック画面・CarPlay) の3か所に出す
+const VERSION='v1.3';
+document.getElementById('ver').textContent=VERSION;
+const moodEl=document.getElementById('mood');
+let moodIdx=0, moodEdited=false;
+function moodLabel(){
+  return t(`preset.${PRESETS[moodIdx].id}.name`) + (moodEdited?' (edit)':'');
+}
+function updateMood(){
+  const label=moodLabel();
+  moodEl.textContent=label;
+  document.title=`Elevator One — ${label}`;
+  updateMediaMetadata();
+}
+
 function applyPreset(idx,btn){
   const pr=PRESETS[idx];
   for(const k in pr.p) target[k]=pr.p[k];
   [...presetsEl.children].forEach(c=>c.setAttribute('aria-pressed','false'));
   if(btn) btn.setAttribute('aria-pressed','true');
+  moodIdx=idx; moodEdited=false; updateMood();
   syncUI(true);
 }
 PRESETS.forEach((pr,i)=>{
@@ -1260,8 +1281,10 @@ function updateVal(key){
 function syncUI(){
   for(const key in inputs){ inputs[key].value=target[key]; updateVal(key); }
 }
+// 手で値をいじった印。プリセットの選択状態を外し、mood 表示に (edit) を付ける
 function clearPresetHighlight(){
   [...presetsEl.children].forEach(c=>c.setAttribute('aria-pressed','false'));
+  if(!moodEdited){ moodEdited=true; updateMood(); }
 }
 
 const driftBtn=document.getElementById('drift');
@@ -1515,13 +1538,22 @@ async function routeToSink(){
   return false;
 }
 
+// ロック画面 / コントロールセンター / CarPlay には現在の mood を出す (Issue #12)
+function mediaMetadata(){
+  return new MediaMetadata({title:moodLabel(), artist:`Elevator One ${VERSION}`});
+}
 function setupMediaSession(){
   if(!('mediaSession' in navigator)) return;
   try{
-    navigator.mediaSession.metadata=new MediaMetadata({title:'Elevator One', artist:t('media.artist')});
+    navigator.mediaSession.metadata=mediaMetadata();
     navigator.mediaSession.setActionHandler('play', ()=>{ if(!running) powerBtn.click(); });
     navigator.mediaSession.setActionHandler('pause',()=>{ if(running) powerBtn.click(); });
   }catch(e){}
+}
+// mood が変わるたびに差し替える。まだ登録されていないうちは何もしない
+function updateMediaMetadata(){
+  if(!('mediaSession' in navigator) || !navigator.mediaSession.metadata) return;
+  try{ navigator.mediaSession.metadata=mediaMetadata(); }catch(e){}
 }
 
 // 前面に戻ったときに中断されたままなら復帰させる
@@ -1664,7 +1696,7 @@ function applyI18n(){
   for(const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label',t(el.dataset.i18nAria));
   langBtn.textContent=lang.toUpperCase();
   updateRecLabel();
-  if('mediaSession' in navigator && navigator.mediaSession.metadata) setupMediaSession();
+  updateMood();   // mood 名も訳し分ける。MediaMetadata もここで追随する
   hideTip();   // 表示中のツールチップが旧言語のまま残らないように
 }
 langBtn.addEventListener('click',()=>{
