@@ -145,7 +145,8 @@
   /* upright だと英字が1文字ずつ縦に並んで読めないので、en では90°回転させる */
   html[lang="en"] .axis-v span{text-orientation:mixed;letter-spacing:.22em}
   .axis-v .mid{color:var(--ink)}
-  .plane{flex:1}
+  /* パッドの形でオーバーレイの並びを変えたいので、パッド自身をコンテナにする (Issue #21) */
+  .plane{flex:1;container-type:size;container-name:pad}
 
   /* ---- pad overlay readout ---- */
   .overlay{
@@ -165,6 +166,15 @@
     font-size:clamp(1.65rem,7.05vh,4.2rem);line-height:1.0;
     letter-spacing:.005em;font-variant-numeric:tabular-nums;
     color:rgba(233,242,246,.26);
+  }
+  /* iOS の landscape などパッドが横長のとき、4項目を縦に積むと下2つが見切れる。
+     横幅は余っているので2列2行に折り返す (Issue #21) */
+  @container pad (min-aspect-ratio: 2/1){
+    .overlay{flex-flow:row wrap;align-content:center;column-gap:6%}
+    .overlay>div{width:40%}
+    /* 2行に減った分、高さ基準の文字を少し大きく戻せる */
+    .overlay b{font-size:clamp(1.65rem,11vh,4.2rem)}
+    .overlay .k{font-size:clamp(.6rem,2.2vh,.82rem)}
   }
 
   /* ---- tooltip ---- */

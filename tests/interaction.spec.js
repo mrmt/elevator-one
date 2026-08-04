@@ -3,6 +3,17 @@ import { test, expect } from '@playwright/test';
 /** iPhone/iPad プロファイル (hasTouch) かどうか */
 const isTouch = (testInfo) => testInfo.project.use.hasTouch === true;
 
+/** XYパッド上のKPI表示の並び (行数・列数) と、パッドからはみ出していないか */
+const overlayLayout = (page) => page.locator('.overlay').evaluate((el) => {
+  const box = el.getBoundingClientRect();
+  const items = [...el.children].map((c) => c.getBoundingClientRect());
+  return {
+    rows: new Set(items.map((b) => Math.round(b.y))).size,
+    cols: new Set(items.map((b) => Math.round(b.x))).size,
+    clipped: items.some((b) => b.y < box.y - 1 || b.bottom > box.bottom + 1),
+  };
+});
+
 test.beforeEach(async ({ page }) => {
   await page.goto('/index.html');
 });
@@ -53,6 +64,15 @@ test('XYパッドが操作に足るサイズを持つ', async ({ page }) => {
   expect(box.height).toBeGreaterThan(200);
   expect(box.height / viewport.height).toBeGreaterThan(0.3);
   expect(box.width / viewport.width).toBeGreaterThan(0.3);
+});
+
+test('パッドが横長でないときは KPI が縦に4つ並ぶ', async ({ page }) => {
+  // 2列2行への切り替えは横長のときだけ (Issue #21)
+  const pad = await page.locator('#plane').boundingBox();
+  expect(pad.width / pad.height).toBeLessThan(2);
+  const { rows, clipped } = await overlayLayout(page);
+  expect(rows).toBe(4);
+  expect(clipped).toBe(false);
 });
 
 test('発音ボタンがトグルする', async ({ page }) => {
@@ -265,5 +285,16 @@ test.describe('iOS landscape', () => {
       clientHeight: document.scrollingElement.clientHeight,
     }));
     expect(scrollHeight).toBeLessThanOrEqual(clientHeight + 1);
+  });
+
+  test('横長のパッドでは KPI が2列2行になり、見切れない', async ({ page }) => {
+    // 縦に4つ積むと上下がはみ出すので、横幅を使って折り返す (Issue #21)
+    const pad = await page.locator('#plane').boundingBox();
+    expect(pad.width / pad.height).toBeGreaterThan(2);
+
+    const { rows, cols, clipped } = await overlayLayout(page);
+    expect(rows).toBe(2);
+    expect(cols).toBe(2);
+    expect(clipped).toBe(false);
   });
 });
