@@ -654,6 +654,32 @@ let ctx=null, master=null, dry=null, revSend=null, dlySend=null,
 // setTimeout はバックグラウンドで絞られるが、音声時計は絞られないため
 let nextEventTime=0, nextGrainTime=0, nextRootTime=0;
 
+// 鳴り終わったノードの切り離しと、シーケンサのステップ表示も同じ理由で
+// ctx.currentTime 基準の予定として持つ。setTimeout に載せると、絞られた環境では
+// 発火しないクロージャがノードを掴んだまま溜まり続ける (Issue #23)
+const disposals=[], uiSteps=[];
+function disposeAt(node,at){ disposals.push({node,at}); }
+function showStepAt(idx,at){ uiSteps.push({idx,at}); }
+
+function runDisposals(now){
+  for(let i=disposals.length-1;i>=0;i--){
+    if(disposals[i].at>now) continue;
+    try{ disposals[i].node.disconnect(); }catch(e){}
+    disposals.splice(i,1);
+  }
+  let bestAt=-1, bestIdx=-1;
+  for(let i=uiSteps.length-1;i>=0;i--){
+    if(uiSteps[i].at>now) continue;
+    if(uiSteps[i].at>bestAt){ bestAt=uiSteps[i].at; bestIdx=uiSteps[i].idx; }   // 遅れた分は最新だけ描く
+    uiSteps.splice(i,1);
+  }
+  if(bestIdx>=0 && bestIdx!==uiStep){ uiStep=bestIdx; renderSteps(); }
+}
+
+// 発音を止めたときは、鳴っている音の切り離しは予定どおりの時刻まで待つ
+// (即座に切るとフェードアウト中の音が途切れる)。表示の予定だけ捨てる
+function flushDisposals(){ uiSteps.length=0; }
+
 // バックグラウンド再生まわり (詳細は「バックグラウンド再生」節)
 let clockNode=null, sink=null, sinkActive=false;
 
@@ -703,6 +729,7 @@ function lfo(freq,depth,param){
 
 function build(){
   ctx = new (window.AudioContext||window.webkitAudioContext)();
+  ctx.onstatechange=()=>reviveAudio();   // iOS は interrupted に落とすことがある (Issue #23)
 
   comp = ctx.createDynamicsCompressor();
   comp.threshold.value=-14; comp.knee.value=24; comp.ratio.value=4;
@@ -965,7 +992,7 @@ function ping(){
   o.connect(bp).connect(g).connect(pan);
   pan.connect(dry); pan.connect(revSend); pan.connect(dlySend);
   o.start(t); o.stop(t+dur+.2);
-  setTimeout(()=>{try{pan.disconnect()}catch(e){}}, (dur+1)*1000);
+  disposeAt(pan, t+dur+1);
 }
 
 function scheduleEvents(){
@@ -992,7 +1019,7 @@ function grain(){
   src.connect(bp).connect(g).connect(pan);
   pan.connect(dry); pan.connect(revSend); pan.connect(dlySend);
   src.start(t, Math.random()*(buf.duration-.2), dur+.03);
-  setTimeout(()=>{try{pan.disconnect()}catch(e){}}, (dur+1)*1000);
+  disposeAt(pan, t+dur+1);
 }
 function scheduleGrains(){
   nextGrainTime=ctx.currentTime+expMap(1-current.grit*GRIT_MAX,.03,3.0)*rand(.35,1.9);
@@ -1069,7 +1096,7 @@ function playStep(i,time){
   o1.connect(m1).connect(flt); o2.connect(m2).connect(flt); o3.connect(m3).connect(flt);
   flt.connect(g).connect(pan).connect(build.seq.bus);
   [o1,o2,o3].forEach(o=>{o.start(time);o.stop(time+gate+.08)});
-  setTimeout(()=>{try{pan.disconnect()}catch(e){}}, (time-ctx.currentTime+gate+1)*1000);
+  disposeAt(pan, time+gate+1);
 
   // 4拍ごとの低音パルス
   if(i%4===0 && c.seq>.34){
@@ -1081,6 +1108,7 @@ function playStep(i,time){
     bg.gain.exponentialRampToValueAtTime(.0001,time+Math.min(.7,stepDur()*3.2));
     b.connect(bf).connect(bg).connect(build.seq.bus);
     b.start(time); b.stop(time+.9);
+    disposeAt(bg, time+1.9);   // ここだけ切り離しが漏れていた (Issue #23)
   }
 }
 
@@ -1107,7 +1135,7 @@ function seqTick(){
     if(idx===0){ barCount++; chordBar(t); }
     chordStep(idx,t);
     playStep(idx,t);
-    setTimeout(()=>{ uiStep=idx; renderSteps(); }, Math.max(0,(t-ctx.currentTime)*1000));
+    showStepAt(idx, t);
     nextStepTime=t+stepDur();
     stepIdx=(stepIdx+1)%16;
     if(stepIdx===0) mutateBar();
@@ -1484,6 +1512,7 @@ registerProcessor('clock', ClockProcessor);
 function tick(){
   if(!ctx) return;
   if(performance.now()-smoothAt>=100) smooth();   // 平滑化とUI更新は100ms間隔で十分
+  runDisposals(ctx.currentTime);   // 止めたあとも鳴り終わりの片付けだけは続ける
   if(!running) return;
   seqTick();
   runScheduled();
@@ -1532,6 +1561,9 @@ async function routeToSink(){
     sink.setAttribute('playsinline','');
     sink.autoplay=true;
     sink.srcObject=streamDest.stream;
+    // 発音中に止められたら鳴らし直す。iOS は割り込みでこれを pause させてくる (Issue #23)
+    sink.addEventListener('pause',()=>reviveAudio());
+    sink.addEventListener('ended',()=>reviveAudio());
     document.body.appendChild(sink);   // 文書外の要素はiOSでの扱いが不安定なので繋いでおく
   }
   try{
@@ -1566,12 +1598,18 @@ function updateMediaMetadata(){
   try{ navigator.mediaSession.metadata=mediaMetadata(); }catch(e){}
 }
 
-// 前面に戻ったときに中断されたままなら復帰させる
-document.addEventListener('visibilitychange',()=>{
-  if(document.visibilityState!=='visible' || !running || !ctx) return;
+// 中断されたままなら復帰させる。
+// 前面に戻る操作を待っていると、画面ロック中に止められた場合そのまま無音が続くので、
+// 中断を知らせるイベントすべてと、取りこぼし用の定期点検からも呼ぶ (Issue #23)
+function reviveAudio(){
+  if(!running || !ctx) return;
   if(ctx.state!=='running') ctx.resume().catch(()=>{});
-  if(sinkActive && sink.paused) sink.play().catch(()=>{});
-});
+  if(sinkActive && sink && sink.paused) sink.play().catch(()=>{});
+}
+document.addEventListener('visibilitychange',reviveAudio);
+// 音声時計は中断中に止まるので、この点検だけは通常のタイマーで持つ。
+// 絞られても数十秒に一度は動くため、復帰の入口としては足りる
+setInterval(reviveAudio,4000);
 
 /* ---- 発音 / 録音 ---- */
 const powerBtn=document.getElementById('power');
@@ -1623,6 +1661,7 @@ powerBtn.addEventListener('click',async()=>{
   }else{
     running=false;
     setPowerUI(false);
+    flushDisposals();
     uiStep=-1; renderSteps();
     apply();
     if(sink) sink.pause();   // 経路の判定中 (sinkActive未確定) でも止める

@@ -93,6 +93,72 @@ test('音声時計がシーケンサを進め続ける', async ({ page }) => {
   expect(after).not.toBe(before);
 });
 
+// iOS のバックグラウンドでは setTimeout が絞られる。音声時計は回り続けるので発音は続き、
+// 後片付けを setTimeout に載せていると、鳴り終わったノードだけが積み上がっていく。
+// 発火しないクロージャがノードを掴むため GC も効かず、最後はメモリ切れで音が消える (Issue #23)
+test('タイマーが絞られても鳴り終わったノードが積み上がらない', async ({ page }) => {
+  await page.addInitScript(() => {
+    // 後片付け用の長いタイマーだけ落とす。経路判定に使う短いものは残さないと音が出ない
+    const origSetTimeout = window.setTimeout;
+    window.setTimeout = function (fn, ms, ...rest) {
+      return ms >= 800 ? 0 : origSetTimeout.call(window, fn, ms, ...rest);
+    };
+    // 宛先ごとに、繋がったまま残っている入力の数を数える
+    let id = 0;
+    const tag = n => n.__id || (n.__id = ++id);
+    window.__inputs = new Map();
+    const origConnect = AudioNode.prototype.connect;
+    const origDisconnect = AudioNode.prototype.disconnect;
+    AudioNode.prototype.connect = function (dest, ...rest) {
+      if (dest instanceof AudioNode) {
+        const k = tag(dest);
+        (this.__out || (this.__out = [])).push(k);
+        window.__inputs.set(k, (window.__inputs.get(k) || 0) + 1);
+      }
+      return origConnect.call(this, dest, ...rest);
+    };
+    AudioNode.prototype.disconnect = function (...args) {
+      for (const k of this.__out || []) window.__inputs.set(k, window.__inputs.get(k) - 1);
+      this.__out = [];
+      return origDisconnect.apply(this, args);
+    };
+  });
+
+  await page.goto('/index.html');
+  // シーケンサを確実に鳴らす。狭幅では別タブに隠れていて fill が使えないので値を直に入れる
+  await page.evaluate(() => {
+    for (const id of ['s_seq', 's_tempo']) {
+      const el = document.getElementById(id);
+      el.value = '1';
+      el.dispatchEvent(new Event('input'));
+    }
+  });
+  await page.getByRole('button', { name: /発音|Sound/ }).click();
+  await waitForSink(page);
+
+  const peak = () => page.evaluate(() => Math.max(...window.__inputs.values()));
+  await page.waitForTimeout(6000);
+  const early = await peak();
+  await page.waitForTimeout(20000);
+  const late = await peak();
+
+  // 鳴っている最中の音の分は繋がっているが、その数で頭打ちになるはず。
+  // 積み上がっていれば 20 秒で数百に達する
+  expect(late).toBeLessThan(80);
+  expect(late - early).toBeLessThan(40);
+});
+
+// 画面ロック中に割り込みで止められても、前面に戻る操作を待たずに鳴らし直す (Issue #23)
+test('外から止められても自力で再生に戻る', async ({ page }) => {
+  await page.goto('/index.html');
+  await page.getByRole('button', { name: /発音|Sound/ }).click();
+  await waitForSink(page);
+
+  await page.evaluate(() => document.querySelector('audio').pause());
+  await page.waitForFunction(() => !document.querySelector('audio').paused, null, { timeout: 8000 });
+  expect(await page.evaluate(() => document.querySelector('audio').paused)).toBe(false);
+});
+
 test('発音を止めるとメディア要素も止まる', async ({ page }) => {
   await page.goto('/index.html');
   const power = page.getByRole('button', { name: /発音|Sound/ });
