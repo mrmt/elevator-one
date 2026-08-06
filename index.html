@@ -658,7 +658,7 @@ let nextEventTime=0, nextGrainTime=0, nextRootTime=0;
 // ctx.currentTime 基準の予定として持つ。setTimeout に載せると、絞られた環境では
 // 発火しないクロージャがノードを掴んだまま溜まり続ける (Issue #23)
 const disposals=[], uiSteps=[];
-function disposeAt(node,at){ disposals.push({node,at}); }
+function disposeAt(node,at){ disposals.push({node,at}); if(DIAG) diagNodes++; }
 function showStepAt(idx,at){ uiSteps.push({idx,at}); }
 
 function runDisposals(now){
@@ -682,6 +682,18 @@ function flushDisposals(){ uiSteps.length=0; }
 
 // バックグラウンド再生まわり (詳細は「バックグラウンド再生」節)
 let clockNode=null, sink=null, sinkActive=false;
+
+// 診断用 (`?diag=1`。詳細は「診断パネル」節 / Issue #23)。
+// 平常時は DIAG が false で、記録も表示も行わない
+const DIAG=new URLSearchParams(location.search).has('diag');
+let diagLog=[], diagLastTick=0, diagLastTimer=0, diagRevive=0, diagNodes=0, diagDraw=null;
+function diagAdd(msg){
+  if(!DIAG) return;
+  const t=new Date();
+  diagLog.push(`${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')} ${msg}`);
+  if(diagLog.length>120) diagLog.shift();
+  if(diagDraw) diagDraw();
+}
 
 const lerp=(a,b,t)=>a+(b-a)*t;
 const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
@@ -729,7 +741,8 @@ function lfo(freq,depth,param){
 
 function build(){
   ctx = new (window.AudioContext||window.webkitAudioContext)();
-  ctx.onstatechange=()=>reviveAudio();   // iOS は interrupted に落とすことがある (Issue #23)
+  // iOS は interrupted に落とすことがある (Issue #23)
+  ctx.onstatechange=()=>{ diagAdd('ctx.state → '+ctx.state); reviveAudio(); };
 
   comp = ctx.createDynamicsCompressor();
   comp.threshold.value=-14; comp.knee.value=24; comp.ratio.value=4;
@@ -1511,6 +1524,7 @@ registerProcessor('clock', ClockProcessor);
 
 function tick(){
   if(!ctx) return;
+  if(DIAG) diagLastTick=Date.now();
   if(performance.now()-smoothAt>=100) smooth();   // 平滑化とUI更新は100ms間隔で十分
   runDisposals(ctx.currentTime);   // 止めたあとも鳴り終わりの片付けだけは続ける
   if(!running) return;
@@ -1562,8 +1576,11 @@ async function routeToSink(){
     sink.autoplay=true;
     sink.srcObject=streamDest.stream;
     // 発音中に止められたら鳴らし直す。iOS は割り込みでこれを pause させてくる (Issue #23)
-    sink.addEventListener('pause',()=>reviveAudio());
-    sink.addEventListener('ended',()=>reviveAudio());
+    sink.addEventListener('pause',()=>{ diagAdd('<audio> pause'); reviveAudio(); });
+    sink.addEventListener('ended',()=>{ diagAdd('<audio> ended'); reviveAudio(); });
+    // 診断時だけ、止まり方の手がかりになるイベントも拾う
+    if(DIAG) for(const ev of ['play','playing','stalled','waiting','suspend','emptied','error'])
+      sink.addEventListener(ev,()=>diagAdd('<audio> '+ev));
     document.body.appendChild(sink);   // 文書外の要素はiOSでの扱いが不安定なので繋いでおく
   }
   try{
@@ -1603,13 +1620,67 @@ function updateMediaMetadata(){
 // 中断を知らせるイベントすべてと、取りこぼし用の定期点検からも呼ぶ (Issue #23)
 function reviveAudio(){
   if(!running || !ctx) return;
-  if(ctx.state!=='running') ctx.resume().catch(()=>{});
-  if(sinkActive && sink && sink.paused) sink.play().catch(()=>{});
+  diagRevive++;
+  if(ctx.state!=='running'){ diagAdd(`resume() を呼ぶ (state=${ctx.state})`); ctx.resume().then(()=>diagAdd(`resume 成功 state=${ctx.state}`),e=>diagAdd('resume 失敗 '+e)); }
+  if(sinkActive && sink && sink.paused){ diagAdd('play() を呼ぶ'); sink.play().then(()=>diagAdd('play 成功'),e=>diagAdd('play 失敗 '+e)); }
 }
-document.addEventListener('visibilitychange',reviveAudio);
+document.addEventListener('visibilitychange',()=>{ diagAdd('visibility → '+document.visibilityState); reviveAudio(); });
 // 音声時計は中断中に止まるので、この点検だけは通常のタイマーで持つ。
 // 絞られても数十秒に一度は動くため、復帰の入口としては足りる
-setInterval(reviveAudio,4000);
+setInterval(()=>{ diagLastTimer=Date.now(); reviveAudio(); },4000);
+
+/* ============================================================
+   診断パネル（`?diag=1` のときだけ出る / Issue #23）
+   ------------------------------------------------------------
+   バックグラウンドで止まる現象は、止まった瞬間に画面を見られない。
+   そこで「何が先に止まったか」を残しておき、前面に戻したときに読む。
+   原因が分かったら消す
+   ============================================================ */
+function diagStart(){
+  const box=document.createElement('pre');
+  // 操作の邪魔にならないよう下端に置く (発音ボタンはヘッダー右上にある)
+  box.style.cssText='position:fixed;left:0;bottom:0;right:0;max-height:42vh;overflow:auto;'+
+    'z-index:9999;margin:0;padding:.5rem;background:rgba(0,0,0,.9);color:#7f7;'+
+    'font:11px/1.4 ui-monospace,SFMono-Regular,monospace;white-space:pre-wrap';
+  document.body.appendChild(box);
+  const born=Date.now();
+  const ago=t=>t ? ((Date.now()-t)/1000).toFixed(1)+'秒前' : 'なし';
+  // ページごと落ちて読み込み直されると、ここに前回の最後の状態が残る
+  try{
+    const prev=sessionStorage.getItem('diag:last');
+    if(prev) diagAdd('!! 読み込み直された。落ちる直前 → '+prev);
+  }catch(e){}
+  const track=()=>{
+    try{
+      const tr=streamDest.stream.getAudioTracks()[0];
+      return `readyState=${tr.readyState} enabled=${tr.enabled} muted=${tr.muted}`;
+    }catch(e){ return '-'; }
+  };
+  const draw=()=>{
+    const lines=[
+      `この画面が開いてから ${((Date.now()-born)/60000).toFixed(1)}分  発音=${running}`,
+      `ctx.state=${ctx?ctx.state:'-'}  ctx.currentTime=${ctx?ctx.currentTime.toFixed(1):'-'}`,
+      `音声時計の最終tick  ${ago(diagLastTick)}   通常タイマーの最終  ${ago(diagLastTimer)}`,
+      `<audio> paused=${sink?sink.paused:'-'} currentTime=${sink?sink.currentTime.toFixed(1):'-'}`+
+        ` sinkActive=${sinkActive} readyState=${sink?sink.readyState:'-'}`,
+      `MediaStream track  ${track()}`,
+      `reviveAudio ${diagRevive}回  片付け待ち ${disposals.length}  生成ノード ${diagNodes}`,
+      '──── 履歴 ────',
+    ];
+    box.textContent=lines.concat(diagLog.slice(-26)).join('\n');
+    try{
+      sessionStorage.setItem('diag:last',
+        `${((Date.now()-born)/60000).toFixed(1)}分時点 state=${ctx?ctx.state:'-'} `+
+        `paused=${sink?sink.paused:'-'} tick=${ago(diagLastTick)}`);
+    }catch(e){}
+  };
+  draw();
+  setInterval(draw,1000);
+  // 音声時計が生きていれば、こちらでも描き直される
+  diagDraw=draw;
+  diagAdd('診断開始');
+}
+if(DIAG) diagStart();
 
 /* ---- 発音 / 録音 ---- */
 const powerBtn=document.getElementById('power');
