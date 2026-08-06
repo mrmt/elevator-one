@@ -1645,11 +1645,31 @@ function diagStart(){
   document.body.appendChild(box);
   const born=Date.now();
   const ago=t=>t ? ((Date.now()-t)/1000).toFixed(1)+'秒前' : 'なし';
-  // ページごと落ちて読み込み直されると、ここに前回の最後の状態が残る
+  // ページごと落ちて読み込み直されると、ここに前回の最後の状態と、
+  // 2分ごとの推移が残る。増え方の傾きが見たいので履歴のほうが本命
   try{
     const prev=sessionStorage.getItem('diag:last');
-    if(prev) diagAdd('!! 読み込み直された。落ちる直前 → '+prev);
+    if(prev){
+      diagAdd('!! 読み込み直された。落ちる直前 → '+prev);
+      const trail=JSON.parse(sessionStorage.getItem('diag:trail')||'[]');
+      if(trail.length) diagAdd('前回の推移 (分 / 生成ノード / 片付け待ち / 履歴行数):');
+      for(const r of trail) diagAdd('  '+r);
+    }
   }catch(e){}
+  // 既定は2分ごと。`&trail=0.05` のように短くすれば手元で動作確認できる
+  const TRAIL_MIN=Number(new URLSearchParams(location.search).get('trail'))||2;
+  let trailAt=0;
+  const trailPush=()=>{
+    const min=(Date.now()-born)/60000;
+    if(min-trailAt<TRAIL_MIN) return;
+    trailAt=min;
+    try{
+      const trail=JSON.parse(sessionStorage.getItem('diag:trail')||'[]');
+      trail.push(`${min.toFixed(1)}分 ${diagNodes} ${disposals.length} ${diagLog.length}`);
+      while(trail.length>40) trail.shift();
+      sessionStorage.setItem('diag:trail',JSON.stringify(trail));
+    }catch(e){}
+  };
   const track=()=>{
     try{
       const tr=streamDest.stream.getAudioTracks()[0];
@@ -1671,8 +1691,10 @@ function diagStart(){
     try{
       sessionStorage.setItem('diag:last',
         `${((Date.now()-born)/60000).toFixed(1)}分時点 state=${ctx?ctx.state:'-'} `+
-        `paused=${sink?sink.paused:'-'} tick=${ago(diagLastTick)}`);
+        `paused=${sink?sink.paused:'-'} tick=${ago(diagLastTick)} `+
+        `生成ノード=${diagNodes} 片付け待ち=${disposals.length} revive=${diagRevive}回`);
     }catch(e){}
+    trailPush();
   };
   draw();
   setInterval(draw,1000);
