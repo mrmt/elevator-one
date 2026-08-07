@@ -715,7 +715,7 @@ let clockNode=null, sink=null, sinkActive=false;
 // 診断用 (`?diag=1`。詳細は「診断パネル」節 / Issue #23)。
 // 平常時は DIAG が false で、記録も表示も行わない
 const DIAG=new URLSearchParams(location.search).has('diag');
-let diagLog=[], diagLastTick=0, diagLastTimer=0, diagRevive=0, diagNodes=0, diagMade=0, diagDraw=null;
+let diagLog=[], diagLastTick=0, diagLastTimer=0, diagRevive=0, diagNodes=0, diagMade=0, diagSrc=0, diagDraw=null;
 function diagAdd(msg){
   if(!DIAG) return;
   const t=new Date();
@@ -772,6 +772,11 @@ function build(){
   ctx = new (window.AudioContext||window.webkitAudioContext)();
   // iOS は interrupted に落とすことがある (Issue #23)
   ctx.onstatechange=()=>{ diagAdd('ctx.state → '+ctx.state); reviveAudio(); };
+  // 音源は使い回せないので毎回作る。プール対象外の生成数も見えるようにする
+  if(DIAG) for(const m of ['createOscillator','createBufferSource']){
+    const orig=ctx[m].bind(ctx);
+    ctx[m]=(...a)=>{ diagSrc++; return orig(...a); };
+  }
 
   comp = ctx.createDynamicsCompressor();
   comp.threshold.value=-14; comp.knee.value=24; comp.ratio.value=4;
@@ -1678,14 +1683,11 @@ function diagStart(){
   const ago=t=>t ? ((Date.now()-t)/1000).toFixed(1)+'秒前' : 'なし';
   // ページごと落ちて読み込み直されると、ここに前回の最後の状態と、
   // 2分ごとの推移が残る。増え方の傾きが見たいので履歴のほうが本命
+  // いちばん見たいのは「いつ落ちたか」なので、履歴に流さず上部に固定で出す
+  let prevLast='', prevTrail=[];
   try{
-    const prev=sessionStorage.getItem('diag:last');
-    if(prev){
-      diagAdd('!! 読み込み直された。落ちる直前 → '+prev);
-      const trail=JSON.parse(sessionStorage.getItem('diag:trail')||'[]');
-      if(trail.length) diagAdd('前回の推移 (経過 / 鳴らした音 / 新規に作ったノード / 片付け待ち):');
-      for(const r of trail) diagAdd('  '+r);
-    }
+    prevLast=sessionStorage.getItem('diag:last')||'';
+    prevTrail=JSON.parse(sessionStorage.getItem('diag:trail')||'[]');
   }catch(e){}
   // 既定は2分ごと。`&trail=0.05` のように短くすれば手元で動作確認できる
   const TRAIL_MIN=Number(new URLSearchParams(location.search).get('trail'))||2;
@@ -1696,7 +1698,7 @@ function diagStart(){
     trailAt=min;
     try{
       const trail=JSON.parse(sessionStorage.getItem('diag:trail')||'[]');
-      trail.push(`${min.toFixed(1)}分 音${diagNodes} 新規${diagMade} 待${disposals.length}`);
+      trail.push(`${min.toFixed(1)}分 音${diagNodes} 新規${diagMade}+${diagSrc} 待${disposals.length}`);
       while(trail.length>40) trail.shift();
       sessionStorage.setItem('diag:trail',JSON.stringify(trail));
     }catch(e){}
@@ -1708,7 +1710,11 @@ function diagStart(){
     }catch(e){ return '-'; }
   };
   const draw=()=>{
-    const lines=[
+    const lines=[];
+    if(prevLast){
+      lines.push('!! 前回はここで落ちた → '+prevLast, '');
+    }
+    lines.push(
       `この画面が開いてから ${((Date.now()-born)/60000).toFixed(1)}分  発音=${running}`,
       `ctx.state=${ctx?ctx.state:'-'}  ctx.currentTime=${ctx?ctx.currentTime.toFixed(1):'-'}`,
       `音声時計の最終tick  ${ago(diagLastTick)}   通常タイマーの最終  ${ago(diagLastTimer)}`,
@@ -1716,16 +1722,22 @@ function diagStart(){
         ` sinkActive=${sinkActive} readyState=${sink?sink.readyState:'-'}`,
       `MediaStream track  ${track()}`,
       `reviveAudio ${diagRevive}回  片付け待ち ${disposals.length}  鳴らした音 ${diagNodes}`,
-      `新規に作ったノード ${diagMade}  プール残 gain=${pool.gain.length} `+
+      `新規ノード 使い回し分${diagMade} + 音源${diagSrc}  プール残 gain=${pool.gain.length} `+
         `filter=${pool.filter.length} pan=${pool.pan.length}`,
-      '──── 履歴 ────',
-    ];
-    box.textContent=lines.concat(diagLog.slice(-26)).join('\n');
+    );
+    if(prevTrail.length){
+      // 末尾ほど大事なので、古い側を折りたたんで最後の8件を必ず見せる
+      lines.push('──── 前回の推移 (経過 / 音 / 新規ノード+音源 / 片付け待ち) ────');
+      if(prevTrail.length>8) lines.push(`  … 前半 ${prevTrail.length-8}件 省略`);
+      for(const r of prevTrail.slice(-8)) lines.push('  '+r);
+    }
+    lines.push('──── 履歴 ────');
+    box.textContent=lines.concat(diagLog.slice(-14)).join('\n');
     try{
       sessionStorage.setItem('diag:last',
         `${((Date.now()-born)/60000).toFixed(1)}分時点 state=${ctx?ctx.state:'-'} `+
         `paused=${sink?sink.paused:'-'} tick=${ago(diagLastTick)} `+
-        `音=${diagNodes} 新規ノード=${diagMade} 片付け待ち=${disposals.length} revive=${diagRevive}回`);
+        `音=${diagNodes} 新規ノード=${diagMade}+音源${diagSrc} 片付け待ち=${disposals.length} revive=${diagRevive}回`);
     }catch(e){}
     trailPush();
   };
