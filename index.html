@@ -719,6 +719,10 @@ const DIAG=new URLSearchParams(location.search).has('diag');
 // グレイン・パラメータの反映をすべて止める。これでも落ちるなら、原因はアプリの
 // 動作ではなく AudioContext と <audio> の経路そのものにある (Issue #23)
 const MINIMAL=new URLSearchParams(location.search).has('minimal');
+// `?nosink=1` は経路の切り分け用。出力を <audio> へ移さず ctx.destination に
+// 繋いだままにする。バックグラウンドでは音が止まるが、プロセスごと落ちるかどうかは
+// 別に判定できる (Issue #23)
+const NOSINK=new URLSearchParams(location.search).has('nosink');
 let diagLog=[], diagLastTick=0, diagLastTimer=0, diagRevive=0, diagNodes=0, diagMade=0, diagSrc=0, diagAuto=0, diagDraw=null;
 // オートメーションは AudioParam のタイムラインに積まれる。setP だけでなく
 // 音のエンベロープも含めた総数を見たいので、まとめて数える (Issue #23)
@@ -1800,7 +1804,8 @@ function diagStart(){
       `reviveAudio ${diagRevive}回  片付け待ち ${disposals.length}  鳴らした音 ${diagNodes}`,
       `新規ノード 使い回し分${diagMade} + 音源${diagSrc}  プール残 gain=${pool.gain.length} `+
         `filter=${pool.filter.length} pan=${pool.pan.length}`,
-      `オートメーション ${diagAuto}件${MINIMAL?'   [minimal: ドローンのみ]':''}`,
+      `オートメーション ${diagAuto}件${MINIMAL?'   [minimal: ドローンのみ]':''}`+
+        `${NOSINK?'   [nosink: <audio>を使わない]':''}`,
     );
     if(prevTrail.length){
       // 末尾ほど大事なので、古い側を折りたたんで最後の8件を必ず見せる
@@ -1871,7 +1876,7 @@ powerBtn.addEventListener('click',async()=>{
     scheduleEvents(); scheduleRoot(); scheduleGrains();
     stepIdx=0; barCount=-1; chordPos=-1; nextStepTime=ctx.currentTime+.12;
     await startClock();
-    routeToSink().catch(()=>{});   // 完了を待たない (待つと最初の音が遅れる)
+    if(!NOSINK) routeToSink().catch(()=>{});   // 完了を待たない (待つと最初の音が遅れる)
     setupMediaSession();
     if('mediaSession' in navigator) navigator.mediaSession.playbackState='playing';
   }else{
