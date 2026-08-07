@@ -1129,52 +1129,92 @@ function reseed(){
 
 function stepDur(){ return 60/(55+current.tempo*95)/4; }   // 16分音符
 
+/* ---- シーケンサのボイス ----
+   OscillatorNode は stop() すると作り直しになるので、鳴らしっぱなしにして
+   ゲートで音を出し入れする。シンセのボイス割り当てと同じ (Issue #23)。
+   同時に鳴るのは gate(最大0.95秒) ÷ ステップ間隔 で高々10音ほど */
+const SEQ_VOICES=12, BASS_VOICES=3;
+let seqVoices=[], bassVoices=[];
+
+function makeSeqVoice(){
+  const o1=ctx.createOscillator(); o1.type='sawtooth';
+  const o2=ctx.createOscillator(); o2.type='square';   o2.detune.value=-7;
+  const o3=ctx.createOscillator(); o3.type='sawtooth'; o3.detune.value=5;
+  const m1=ctx.createGain(), m2=ctx.createGain(), m3=ctx.createGain();
+  m1.gain.value=.42; m2.gain.value=.20; m3.gain.value=.30;
+  const flt=ctx.createBiquadFilter(); flt.type='lowpass';
+  const g=ctx.createGain(); g.gain.value=0;
+  const pan=ctx.createStereoPanner();
+  o1.connect(m1).connect(flt); o2.connect(m2).connect(flt); o3.connect(m3).connect(flt);
+  flt.connect(g).connect(pan).connect(build.seq.bus);
+  o1.start(); o2.start(); o3.start();
+  return {o1,o2,o3,flt,g,pan,free:0};
+}
+function makeBassVoice(){
+  const o=ctx.createOscillator(); o.type='triangle';
+  const f=ctx.createBiquadFilter(); f.type='lowpass'; f.Q.value=2;
+  const g=ctx.createGain(); g.gain.value=0;
+  o.connect(f).connect(g).connect(build.seq.bus);
+  o.start();
+  return {o,f,g,free:0};
+}
+// 空いているものを使う。全部塞がっていれば、いちばん早く空くものを奪う
+function takeVoice(list,time){
+  let best=list[0];
+  for(const v of list){
+    if(v.free<=time) return v;
+    if(v.free<best.free) best=v;
+  }
+  return best;
+}
+
 function playStep(i,time){
   const c=current, st=pattern[i];
   if(!st.on || c.seq<.02) return;
+  if(!seqVoices.length){
+    for(let n=0;n<SEQ_VOICES;n++) seqVoices.push(makeSeqVoice());
+    for(let n=0;n<BASS_VOICES;n++) bassVoices.push(makeBassVoice());
+  }
   const scale = c.tension<.45 ? [0,2,3,5,7,8,10] : [0,1,3,6,7,10,11];
   const semi = scale[st.deg] + st.oct*12 + 24;
   const f = mtof(rootMidi - c.weight*7) * Math.pow(2, semi/12);
 
-  const o1=ctx.createOscillator(); o1.type='sawtooth'; o1.frequency.value=f;
-  const o2=ctx.createOscillator(); o2.type='square';   o2.frequency.value=f; o2.detune.value=-7;
-  const o3=ctx.createOscillator(); o3.type='sawtooth'; o3.frequency.value=f/2; o3.detune.value=5;
-  const m1=takeGain(), m2=takeGain(), m3=takeGain();
-  m1.gain.value=.42; m2.gain.value=.20; m3.gain.value=.30;
+  const v=takeVoice(seqVoices,time);
+  v.o1.frequency.setValueAtTime(f,time);
+  v.o2.frequency.setValueAtTime(f,time);
+  v.o3.frequency.setValueAtTime(f/2,time);
 
-  const flt=takeFilter('lowpass');
-  flt.Q.value=Math.min(20, 0.7+c.sres*18);
+  v.flt.Q.value=Math.min(20, 0.7+c.sres*18);
   const base=expMap(c.reso,110,3200);
   const peak=Math.min(base*(2.4+(st.acc?2.4:0)+c.grit*GRIT_MAX*1.6), 12000);
-  flt.frequency.setValueAtTime(peak,time);
-  flt.frequency.exponentialRampToValueAtTime(Math.max(80,base*.82), time+.22+(1-c.reso)*.35);
+  v.flt.frequency.cancelScheduledValues(time);
+  v.flt.frequency.setValueAtTime(peak,time);
+  v.flt.frequency.exponentialRampToValueAtTime(Math.max(80,base*.82), time+.22+(1-c.reso)*.35);
 
   const gate=Math.min(.95, stepDur()*(st.acc?2.4:1.5)+.06);
-  const g=takeGain();
   const amp=(st.acc?.62:.44)/(1+c.sres*1.1);
-  g.gain.setValueAtTime(.0001,time);
-  g.gain.linearRampToValueAtTime(amp,time+.006);
-  g.gain.exponentialRampToValueAtTime(.0001,time+gate);
+  v.g.gain.cancelScheduledValues(time);
+  v.g.gain.setValueAtTime(.0001,time);
+  v.g.gain.linearRampToValueAtTime(amp,time+.006);
+  v.g.gain.exponentialRampToValueAtTime(.0001,time+gate);
+  v.g.gain.setValueAtTime(0,time+gate+.005);   // 鳴らしっぱなしなので確実に無音へ落とす
 
-  const pan=takePan();
-  pan.pan.value=((i%4)/3-.5)*.7;
-
-  o1.connect(m1).connect(flt); o2.connect(m2).connect(flt); o3.connect(m3).connect(flt);
-  flt.connect(g).connect(pan).connect(build.seq.bus);
-  [o1,o2,o3].forEach(o=>{o.start(time);o.stop(time+gate+.08)});
-  disposeAt([o1,o2,o3,pan,g,flt,m1,m2,m3], time+gate+1);
+  v.pan.pan.setValueAtTime(((i%4)/3-.5)*.7, time);
+  v.free=time+gate+.05;
+  if(DIAG) diagNodes++;
 
   // 4拍ごとの低音パルス
   if(i%4===0 && c.seq>.34){
-    const b=ctx.createOscillator(); b.type='triangle'; b.frequency.value=f/4;
-    const bf=takeFilter('lowpass'); bf.frequency.value=260+c.bright*500; bf.Q.value=2;
-    const bg=takeGain();
-    bg.gain.setValueAtTime(.0001,time);
-    bg.gain.linearRampToValueAtTime(.42,time+.01);
-    bg.gain.exponentialRampToValueAtTime(.0001,time+Math.min(.7,stepDur()*3.2));
-    b.connect(bf).connect(bg).connect(build.seq.bus);
-    b.start(time); b.stop(time+.9);
-    disposeAt([b,bg,bf], time+1.9);   // ここだけ切り離しが漏れていた (Issue #23)
+    const b=takeVoice(bassVoices,time);
+    const dur=Math.min(.7,stepDur()*3.2);
+    b.o.frequency.setValueAtTime(f/4,time);
+    b.f.frequency.setValueAtTime(260+c.bright*500,time);
+    b.g.gain.cancelScheduledValues(time);
+    b.g.gain.setValueAtTime(.0001,time);
+    b.g.gain.linearRampToValueAtTime(.42,time+.01);
+    b.g.gain.exponentialRampToValueAtTime(.0001,time+dur);
+    b.g.gain.setValueAtTime(0,time+dur+.005);
+    b.free=time+dur+.05;
   }
 }
 
