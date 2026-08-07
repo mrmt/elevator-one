@@ -715,6 +715,10 @@ let clockNode=null, sink=null, sinkActive=false;
 // 診断用 (`?diag=1`。詳細は「診断パネル」節 / Issue #23)。
 // 平常時は DIAG が false で、記録も表示も行わない
 const DIAG=new URLSearchParams(location.search).has('diag');
+// `?minimal=1` は蓄積源の切り分け用。ドローンだけを鳴らし、シーケンサ・単発音・
+// グレイン・パラメータの反映をすべて止める。これでも落ちるなら、原因はアプリの
+// 動作ではなく AudioContext と <audio> の経路そのものにある (Issue #23)
+const MINIMAL=new URLSearchParams(location.search).has('minimal');
 let diagLog=[], diagLastTick=0, diagLastTimer=0, diagRevive=0, diagNodes=0, diagMade=0, diagSrc=0, diagAuto=0, diagDraw=null;
 function diagAdd(msg){
   if(!DIAG) return;
@@ -1269,7 +1273,7 @@ function smooth(){
   for(const key in P) current[key]+= (target[key]-current[key])*k;
   rootMidi += (rootTarget-rootMidi)*k;
 
-  if(autoDrift && running){
+  if(autoDrift && running && !MINIMAL){
     for(const key of ['bright','density','motion','tension','space','grit','mutate','reso','sres']){
       target[key]=clamp(target[key]+(Math.random()-.5)*dt*0.024);
     }
@@ -1278,7 +1282,8 @@ function smooth(){
   }
   // 値の平滑化と表示は100msごとでよいが、オーディオへの反映はイベントが
   // 積み上がるので間隔を空ける。時定数(T=0.25s)より短ければ音は変わらない (Issue #23)
-  if(now-applyAt>=250){ applyAt=now; apply(); }
+  // MINIMAL のときは最初の1回だけ反映し、以降はオートメーションを一切撒かない
+  if(now-applyAt>=250 && !(MINIMAL&&applyAt)){ applyAt=now; apply(); }
   readout();
 }
 // 音声時計が止まっている間 (発音前、AudioContextの中断中) の受け皿。
@@ -1578,7 +1583,7 @@ function tick(){
   if(DIAG) diagLastTick=Date.now();
   if(performance.now()-smoothAt>=100) smooth();   // 平滑化とUI更新は100ms間隔で十分
   runDisposals(ctx.currentTime);   // 止めたあとも鳴り終わりの片付けだけは続ける
-  if(!running) return;
+  if(!running || MINIMAL) return;
   seqTick();
   runScheduled();
 }
@@ -1739,7 +1744,7 @@ function diagStart(){
       `reviveAudio ${diagRevive}回  片付け待ち ${disposals.length}  鳴らした音 ${diagNodes}`,
       `新規ノード 使い回し分${diagMade} + 音源${diagSrc}  プール残 gain=${pool.gain.length} `+
         `filter=${pool.filter.length} pan=${pool.pan.length}`,
-      `オートメーション ${diagAuto}件`,
+      `オートメーション ${diagAuto}件${MINIMAL?'   [minimal: ドローンのみ]':''}`,
     );
     if(prevTrail.length){
       // 末尾ほど大事なので、古い側を折りたたんで最後の8件を必ず見せる
