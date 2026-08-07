@@ -715,7 +715,7 @@ let clockNode=null, sink=null, sinkActive=false;
 // 診断用 (`?diag=1`。詳細は「診断パネル」節 / Issue #23)。
 // 平常時は DIAG が false で、記録も表示も行わない
 const DIAG=new URLSearchParams(location.search).has('diag');
-let diagLog=[], diagLastTick=0, diagLastTimer=0, diagRevive=0, diagNodes=0, diagMade=0, diagSrc=0, diagDraw=null;
+let diagLog=[], diagLastTick=0, diagLastTimer=0, diagRevive=0, diagNodes=0, diagMade=0, diagSrc=0, diagAuto=0, diagDraw=null;
 function diagAdd(msg){
   if(!DIAG) return;
   const t=new Date();
@@ -935,7 +935,20 @@ function build(){
   ready=true;
 }
 
-/* ---- 現在値をオーディオに反映 ---- */
+/* ---- 現在値をオーディオに反映 ----
+   setTargetAtTime のイベントは AudioParam のタイムラインに積まれる。
+   ここは60個以上のパラメータを定期的に撒くので、そのまま呼び続けると
+   数十万〜数百万件に達する。動いていないパラメータには撒かない (Issue #23)。
+   時定数で滑らかになるため、わずかな差を飛ばしても音は変わらない */
+const lastSet=new WeakMap();
+function setP(param,v,t,tc){
+  const prev=lastSet.get(param);
+  if(prev!==undefined && Math.abs(v-prev)<=Math.abs(prev)*.005+1e-7) return;
+  lastSet.set(param,v);
+  if(DIAG) diagAuto++;
+  param.setTargetAtTime(v,t,tc);
+}
+
 function apply(){
   if(!ctx || !ready) return;
   const t=ctx.currentTime, T=.25;
@@ -953,59 +966,59 @@ function apply(){
   const cutoff=expMap(c.bright,110,4200);
   voices.forEach((v,i)=>{
     const f=rf*Math.pow(2,iv[i]/12);
-    v.oscA.frequency.setTargetAtTime(f,t,T*4);
-    v.oscB.frequency.setTargetAtTime(f,t,T*4);
-    v.oscA.detune.setTargetAtTime((i-2)*(2+c.tension*22),t,T*4);
+    setP(v.oscA.frequency,f,t,T*4);
+    setP(v.oscB.frequency,f,t,T*4);
+    setP(v.oscA.detune,(i-2)*(2+c.tension*22),t,T*4);
     const w = i===0 ? .55+c.weight*.45 : 1 - i*.13;
-    v.g.gain.setTargetAtTime(v.base*w*(0.35+c.level*.65),t,T);
-    v.f.frequency.setTargetAtTime(cutoff*(1+i*.35),t,T*2);
-    v.filLfo.gain.gain.setTargetAtTime(cutoff*.35*c.motion,t,T);
-    v.ampLfo.gain.gain.setTargetAtTime(.05+c.motion*.22,t,T);
-    v.detLfo.gain.gain.setTargetAtTime(2+c.motion*26+c.tension*14,t,T);
+    setP(v.g.gain,v.base*w*(0.35+c.level*.65),t,T);
+    setP(v.f.frequency,cutoff*(1+i*.35),t,T*2);
+    setP(v.filLfo.gain.gain,cutoff*.35*c.motion,t,T);
+    setP(v.ampLfo.gain.gain,.05+c.motion*.22,t,T);
+    setP(v.detLfo.gain.gain,2+c.motion*26+c.tension*14,t,T);
   });
 
-  noise.ng.gain.setTargetAtTime((.006+c.bright*.05)*(0.3+c.level*.7),t,T);
-  noise.nf.frequency.setTargetAtTime(expMap(c.bright,240,5200),t,T*2);
-  noise.npLfo.gain.gain.setTargetAtTime(.2+c.motion*.7,t,T);
+  setP(noise.ng.gain,(.006+c.bright*.05)*(0.3+c.level*.7),t,T);
+  setP(noise.nf.frequency,expMap(c.bright,240,5200),t,T*2);
+  setP(noise.npLfo.gain.gain,.2+c.motion*.7,t,T);
 
   const gr=c.grit*GRIT_MAX;
-  build.metalGain.gain.setTargetAtTime(Math.pow(gr,1.8)*.26*(0.3+c.level*.7)*(1-c.harm),t,T);
+  setP(build.metalGain.gain,Math.pow(gr,1.8)*.26*(0.3+c.level*.7)*(1-c.harm),t,T);
 
   // ざらつき（歪み・リングモジュレーション・粉塵）
   const tx=build.tex;
-  tx.texIn.gain.setTargetAtTime(.45+gr*5.2,t,T);
-  tx.texOut.gain.setTargetAtTime(Math.pow(gr,1.25)*.40*(0.35+c.level*.65),t,T);
-  tx.ringDepth.gain.setTargetAtTime(Math.pow(gr,2.1)*.80,t,T);
-  tx.ringOsc.frequency.setTargetAtTime(28+gr*240+c.tension*160,t,T*4);
-  tx.crkDepth.gain.setTargetAtTime(Math.pow(gr,1.7)*2.4,t,T);
-  tx.texLP.frequency.setTargetAtTime(expMap(c.bright,1100,9000),t,T);
-  tx.texHP.frequency.setTargetAtTime(70+gr*280,t,T);
-  tx.droneBus.gain.setTargetAtTime((1-gr*.28)*(1-c.harm*.95),t,T);
+  setP(tx.texIn.gain,.45+gr*5.2,t,T);
+  setP(tx.texOut.gain,Math.pow(gr,1.25)*.40*(0.35+c.level*.65),t,T);
+  setP(tx.ringDepth.gain,Math.pow(gr,2.1)*.80,t,T);
+  setP(tx.ringOsc.frequency,28+gr*240+c.tension*160,t,T*4);
+  setP(tx.crkDepth.gain,Math.pow(gr,1.7)*2.4,t,T);
+  setP(tx.texLP.frequency,expMap(c.bright,1100,9000),t,T);
+  setP(tx.texHP.frequency,70+gr*280,t,T);
+  setP(tx.droneBus.gain,(1-gr*.28)*(1-c.harm*.95),t,T);
 
   // 展開（和声）
   const pd=build.pad;
-  pd.padBus.gain.setTargetAtTime(c.harm*.85*(0.35+c.level*.65),t,T);
-  pd.padFil.frequency.setTargetAtTime(expMap(c.bright,420,6800),t,T*2);
-  if(c.chordrhy<.08) pd.padEnv.gain.setTargetAtTime(1,t,.7);
+  setP(pd.padBus.gain,c.harm*.85*(0.35+c.level*.65),t,T);
+  setP(pd.padFil.frequency,expMap(c.bright,420,6800),t,T*2);
+  if(c.chordrhy<.08) setP(pd.padEnv.gain,1,t,.7);
 
-  build.revGain.gain.setTargetAtTime(.15+c.space*.75,t,T);
-  build.delay.fb.gain.setTargetAtTime(.25+c.space*.5,t,T);
-  build.delay.dl.delayTime.setTargetAtTime(1.4+c.space*5.2,t,T*4);
-  build.delay.dOut.gain.setTargetAtTime(.1+c.space*.4,t,T);
-  dry.gain.setTargetAtTime(.95-c.space*.35,t,T);
+  setP(build.revGain.gain,.15+c.space*.75,t,T);
+  setP(build.delay.fb.gain,.25+c.space*.5,t,T);
+  setP(build.delay.dl.delayTime,1.4+c.space*5.2,t,T*4);
+  setP(build.delay.dOut.gain,.1+c.space*.4,t,T);
+  setP(dry.gain,.95-c.space*.35,t,T);
 
   // シーケンサ
   const sq=build.seq;
-  sq.bus.gain.setTargetAtTime(Math.pow(c.seq,1.3)*.55*(1+2*c.seq)*(0.35+c.level*.65),t,T);
+  setP(sq.bus.gain,Math.pow(c.seq,1.3)*.55*(1+2*c.seq)*(0.35+c.level*.65),t,T);
   const sd=stepDur();
-  sq.tapL.d.delayTime.setTargetAtTime(sd*3,t,1.5);   // 付点8分
-  sq.tapR.d.delayTime.setTargetAtTime(sd*4.5,t,1.5); // ずらした返し
-  sq.tapL.f.gain.setTargetAtTime(.30+c.space*.45,t,T);
-  sq.tapR.f.gain.setTargetAtTime(.24+c.space*.45,t,T);
-  sq.tapL.lp.frequency.setTargetAtTime(expMap(c.reso,700,6000),t,T);
-  sq.tapR.lp.frequency.setTargetAtTime(expMap(c.reso,600,5000),t,T);
+  setP(sq.tapL.d.delayTime,sd*3,t,1.5);   // 付点8分
+  setP(sq.tapR.d.delayTime,sd*4.5,t,1.5); // ずらした返し
+  setP(sq.tapL.f.gain,.30+c.space*.45,t,T);
+  setP(sq.tapR.f.gain,.24+c.space*.45,t,T);
+  setP(sq.tapL.lp.frequency,expMap(c.reso,700,6000),t,T);
+  setP(sq.tapR.lp.frequency,expMap(c.reso,600,5000),t,T);
 
-  master.gain.setTargetAtTime(running ? .28+c.level*.5 : 0, t, running?1.2:2.0);
+  setP(master.gain,running ? .28+c.level*.5 : 0, t, running?1.2:2.0);
 }
 
 /* ---- 単発の音（点） ---- */
@@ -1246,7 +1259,7 @@ function chordStep(i,time){
 /* ============================================================
    平滑化ループ
    ============================================================ */
-let last=performance.now(), smoothAt=0;
+let last=performance.now(), smoothAt=0, applyAt=0;
 function smooth(){
   const now=performance.now();
   const dt=Math.min(.5,(now-last)/1000); last=now;   // 復帰直後の巨大なdtで値が飛ばないように抑える
@@ -1263,7 +1276,9 @@ function smooth(){
     target.tempo=clamp(target.tempo+(Math.random()-.5)*dt*0.008);
     syncUI();
   }
-  apply();
+  // 値の平滑化と表示は100msごとでよいが、オーディオへの反映はイベントが
+  // 積み上がるので間隔を空ける。時定数(T=0.25s)より短ければ音は変わらない (Issue #23)
+  if(now-applyAt>=250){ applyAt=now; apply(); }
   readout();
 }
 // 音声時計が止まっている間 (発音前、AudioContextの中断中) の受け皿。
@@ -1698,7 +1713,7 @@ function diagStart(){
     trailAt=min;
     try{
       const trail=JSON.parse(sessionStorage.getItem('diag:trail')||'[]');
-      trail.push(`${min.toFixed(1)}分 音${diagNodes} 新規${diagMade}+${diagSrc} 待${disposals.length}`);
+      trail.push(`${min.toFixed(1)}分 音${diagNodes} 新規${diagMade}+${diagSrc} 自動${diagAuto} 待${disposals.length}`);
       while(trail.length>40) trail.shift();
       sessionStorage.setItem('diag:trail',JSON.stringify(trail));
     }catch(e){}
@@ -1724,10 +1739,11 @@ function diagStart(){
       `reviveAudio ${diagRevive}回  片付け待ち ${disposals.length}  鳴らした音 ${diagNodes}`,
       `新規ノード 使い回し分${diagMade} + 音源${diagSrc}  プール残 gain=${pool.gain.length} `+
         `filter=${pool.filter.length} pan=${pool.pan.length}`,
+      `オートメーション ${diagAuto}件`,
     );
     if(prevTrail.length){
       // 末尾ほど大事なので、古い側を折りたたんで最後の8件を必ず見せる
-      lines.push('──── 前回の推移 (経過 / 音 / 新規ノード+音源 / 片付け待ち) ────');
+      lines.push('──── 前回の推移 (経過 / 音 / 新規ノード+音源 / オートメーション / 片付け待ち) ────');
       if(prevTrail.length>8) lines.push(`  … 前半 ${prevTrail.length-8}件 省略`);
       for(const r of prevTrail.slice(-8)) lines.push('  '+r);
     }
@@ -1737,7 +1753,8 @@ function diagStart(){
       sessionStorage.setItem('diag:last',
         `${((Date.now()-born)/60000).toFixed(1)}分時点 state=${ctx?ctx.state:'-'} `+
         `paused=${sink?sink.paused:'-'} tick=${ago(diagLastTick)} `+
-        `音=${diagNodes} 新規ノード=${diagMade}+音源${diagSrc} 片付け待ち=${disposals.length} revive=${diagRevive}回`);
+        `音=${diagNodes} 新規ノード=${diagMade}+音源${diagSrc} オートメーション=${diagAuto} `+
+        `片付け待ち=${disposals.length} revive=${diagRevive}回`);
     }catch(e){}
     trailPush();
   };
