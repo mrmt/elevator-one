@@ -720,6 +720,14 @@ const DIAG=new URLSearchParams(location.search).has('diag');
 // 動作ではなく AudioContext と <audio> の経路そのものにある (Issue #23)
 const MINIMAL=new URLSearchParams(location.search).has('minimal');
 let diagLog=[], diagLastTick=0, diagLastTimer=0, diagRevive=0, diagNodes=0, diagMade=0, diagSrc=0, diagAuto=0, diagDraw=null;
+// オートメーションは AudioParam のタイムラインに積まれる。setP だけでなく
+// 音のエンベロープも含めた総数を見たいので、まとめて数える (Issue #23)
+if(DIAG) for(const m of ['setValueAtTime','linearRampToValueAtTime',
+                         'exponentialRampToValueAtTime','setTargetAtTime',
+                         'cancelScheduledValues']){
+  const orig=AudioParam.prototype[m];
+  AudioParam.prototype[m]=function(...a){ diagAuto++; return orig.apply(this,a); };
+}
 function diagAdd(msg){
   if(!DIAG) return;
   const t=new Date();
@@ -949,7 +957,6 @@ function setP(param,v,t,tc){
   const prev=lastSet.get(param);
   if(prev!==undefined && Math.abs(v-prev)<=Math.abs(prev)*.005+1e-7) return;
   lastSet.set(param,v);
-  if(DIAG) diagAuto++;
   param.setTargetAtTime(v,t,tc);
 }
 
