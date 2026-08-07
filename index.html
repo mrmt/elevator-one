@@ -1329,8 +1329,17 @@ function smooth(){
   }
   // 値の平滑化と表示は100msごとでよいが、オーディオへの反映はイベントが
   // 積み上がるので間隔を空ける。時定数(T=0.25s)より短ければ音は変わらない (Issue #23)
-  // MINIMAL のときは最初の1回だけ反映し、以降はオートメーションを一切撒かない
-  if(now-applyAt>=250 && !(MINIMAL&&applyAt)){ applyAt=now; apply(); }
+  // MINIMAL のときは最初の1回だけ反映し、以降はオートメーションを一切撒かない。
+  // ただしグラフが組み上がる前に呼んでも apply() は何もせずに返るので、
+  // その空振りを「1回目」に数えないこと (数えると音が出ないまま固まる)
+  if(MINIMAL){
+    // 発音が始まってから1回。グラフの組み上がり前や running=false のときに
+    // 撒いてしまうと、master が 0 のまま固定されて音が出ない
+    if(!running) applyAt=0;
+    else if(ready && !applyAt){ applyAt=now; apply(); }
+  }else if(now-applyAt>=250){
+    applyAt=now; apply();
+  }
   readout();
 }
 // 音声時計が止まっている間 (発音前、AudioContextの中断中) の受け皿。
