@@ -72,6 +72,8 @@
   /* 再生 / 一時停止。ロック画面と同じ2つを並べ、現在の状態の側が点灯する (Issue #25) */
   .tbtn.xport{display:inline-flex;align-items:center;gap:.5rem}
   .tbtn.xport .ico{width:.66rem;height:.66rem;fill:currentColor;flex-shrink:0}
+  /* 録音はアイコンだけなので左右の余白を詰めて正方形に近づける */
+  .tbtn.xport.rec{padding:.5rem .9rem}
 
   /* ---- タブ (狭幅時のみ表示) ---- */
   .tabs{display:none}
@@ -248,10 +250,10 @@
     /* transport が1行に収まるよう詰める */
     .transport{gap:.4rem}
     .tbtn{padding:.5rem .8rem}
-    /* 再生ボタンが2つに増えた分、狭幅ではアイコンだけにする (aria-label は残る)。
-       録音はラベルで状態 (停止 / 保存・録音不可) を伝えるので文字を残す */
+    /* 再生ボタンが2つに増えた分、狭幅ではラベルも畳んでアイコンだけにする
+       (aria-label は残るので読み上げは変わらない) */
     #play .tlabel,#pause .tlabel{display:none}
-    #play,#pause{padding:.5rem .7rem}
+    #play,#pause,.tbtn.xport.rec{padding:.5rem .7rem}
     .tabs{display:flex;background:rgba(0,0,0,.21);border-bottom:1px solid var(--line);flex:none}
     main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
     /* 属性セレクタを噛ませて .plane-wrap のクラス指定より詳細度を上げる */
@@ -294,8 +296,8 @@
     <!-- 再生 / 一時停止。ロック画面と同じ並びで、いま置かれている状態の側が点灯する (Issue #25) -->
     <button class="tbtn xport" id="play" data-on="0" aria-pressed="false" aria-label="再生" data-i18n-aria="transport.play" data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg><span class="tlabel" data-i18n="transport.play">再生</span></button>
     <button class="tbtn xport" id="pause" data-on="1" aria-pressed="true" aria-label="一時停止" data-i18n-aria="transport.pause" data-tip="音を止める。スペースキーでも切り替え可" data-i18n-tip="tip.pause"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg><span class="tlabel" data-i18n="transport.pause">一時停止</span></button>
-    <!-- 録音は ● で示す。ラベルは状態で変わるので .tlabel だけ差し替える -->
-    <button class="tbtn xport rec" id="rec" data-on="0" disabled><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6"/></svg><span class="tlabel">録音</span></button>
+    <!-- 録音は ● だけ。状態 (録音中 / 録音不可) は色と aria-label・ツールチップで示す -->
+    <button class="tbtn xport rec" id="rec" data-on="0" aria-label="録音" disabled><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6"/></svg></button>
   </div>
 </header>
 
@@ -418,6 +420,8 @@ ja: {
   'tip.play':'音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
   'tip.pause':'音を止める。スペースキーでも切り替え可',
   'tip.lang':'表示言語を英語に切り替える',
+  'tip.rec':'鳴っている音をそのまま録音する。止めるとファイルが保存される',
+  'tip.recStop':'録音を止めてファイルに保存する',
   'tip.recUnsupported':'この端末のブラウザは録音 (MediaRecorder) に対応していない',
   'tip.shuffle':'30秒ごとに雰囲気をランダムに切り替える',
   'tip.drift':'放置しても目標値とルート音がゆっくり自然に揺れ続ける',
@@ -520,6 +524,8 @@ en: {
   'tip.play':'Starts the sound. Browsers block audio until you interact with the page, so press this first. The space key works too',
   'tip.pause':'Stops the sound. The space key works too',
   'tip.lang':'Switch the display language to Japanese',
+  'tip.rec':'Records what you hear. Stopping saves the file',
+  'tip.recStop':'Stops recording and saves the file',
   'tip.recUnsupported':'This browser does not support recording (MediaRecorder)',
   'tip.shuffle':'Switches to a random mood every 30 seconds',
   'tip.drift':'Keeps the target values and the root note drifting slowly on their own',
@@ -1621,7 +1627,6 @@ setInterval(reviveAudio,4000);
 const playBtn=document.getElementById('play');
 const pauseBtn=document.getElementById('pause');
 const recBtn=document.getElementById('rec');
-const recLabel=recBtn.querySelector('.tlabel');
 
 // いま置かれている状態の側を点灯させる (Issue #25)。再生中なら再生ボタンが光る
 function setPowerUI(on){
@@ -1640,16 +1645,17 @@ const REC_MIME=(()=>{
   })||null;
 })();
 
-// 録音ボタンだけは状態でラベルが変わるので data-i18n では扱えない。
-// ● のアイコンを消さないよう、差し替えるのは .tlabel だけ
+// 録音ボタンは ● だけなので、状態は aria-label とツールチップで伝える。
+// 状態でこの2つが変わるため data-i18n では扱えない
 function updateRecLabel(){
   if(!REC_MIME){
-    recLabel.textContent=t('transport.recUnsupported');
+    recBtn.setAttribute('aria-label',t('transport.recUnsupported'));
     recBtn.dataset.tip=t('tip.recUnsupported');
     return;
   }
   const rec = recorder && recorder.state==='recording';
-  recLabel.textContent = t(rec ? 'transport.recStop' : 'transport.rec');
+  recBtn.setAttribute('aria-label',t(rec ? 'transport.recStop' : 'transport.rec'));
+  recBtn.dataset.tip=t(rec ? 'tip.recStop' : 'tip.rec');
 }
 
 // 再生中に再生ボタンを押しても何も起きない (逆も同じ)。ロック画面から来る

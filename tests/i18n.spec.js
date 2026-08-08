@@ -14,7 +14,7 @@ test.describe('ブラウザ言語が日本語のとき', () => {
     await expect(page.locator('#lang')).toHaveText('JA');
     await expect(page.locator('#play')).toHaveAttribute('aria-label', '再生');
     await expect(page.locator('#tabs .tab[data-tab="mood"]')).toHaveText('雰囲気');
-    await expect(page.locator('#rec')).toHaveText(/録音|録音不可/);
+    await expect(page.locator('#rec')).toHaveAttribute('aria-label', /録音|録音不可/);
     // プリセットは「静止」+ 英語名の2段表示
     const first = page.locator('.preset').first();
     await expect(first).toContainText('静止');
