@@ -67,12 +67,9 @@
   .tbtn[disabled]{opacity:.35;cursor:not-allowed}
   /* 言語切替。狭幅でヘッダーが折り返さないよう他の .tbtn より詰める */
   .tbtn.lang{padding:.5rem .7rem;letter-spacing:.18em}
-  /* 再生トグル: ロック画面と同じく play / pause アイコンで状態を示す (Issue #25) */
-  .tbtn.toggle{display:inline-flex;align-items:center;gap:.55rem}
-  .tbtn.toggle .ico{width:.66rem;height:.66rem;fill:currentColor;flex-shrink:0}
-  .tbtn.toggle .ico-pause,
-  .tbtn.toggle[data-on="1"] .ico-play{display:none}
-  .tbtn.toggle[data-on="1"] .ico-pause{display:inline-block}
+  /* 再生 / 一時停止。ロック画面と同じ2つを並べ、現在の状態の側が点灯する (Issue #25) */
+  .tbtn.xport{display:inline-flex;align-items:center;gap:.5rem}
+  .tbtn.xport .ico{width:.66rem;height:.66rem;fill:currentColor;flex-shrink:0}
 
   /* ---- タブ (狭幅時のみ表示) ---- */
   .tabs{display:none}
@@ -250,6 +247,9 @@
     .transport{gap:.4rem}
     .tbtn{padding:.5rem .8rem}
     .tbtn.lang{padding:.5rem .6rem}
+    /* 再生ボタンが2つに増えた分、狭幅ではアイコンだけにして1行を守る (aria-label は残る) */
+    .tbtn.xport .tlabel{display:none}
+    .tbtn.xport{padding:.5rem .7rem}
     .tabs{display:flex;background:rgba(0,0,0,.21);border-bottom:1px solid var(--line);flex:none}
     main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
     /* 属性セレクタを噛ませて .plane-wrap のクラス指定より詳細度を上げる */
@@ -288,8 +288,9 @@
   <div class="sub mood" id="mood"></div>
   <div class="transport">
     <button class="tbtn lang" id="lang" data-i18n-tip="tip.lang" data-i18n-aria="transport.lang">JA</button>
-    <!-- ラベルとアイコンは状態で変わるので data-i18n では扱えない。setPowerUI() が入れる -->
-    <button class="tbtn toggle" id="power" data-on="0" aria-pressed="false" aria-label="再生" data-tip="再生と一時停止を切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.power"><svg class="ico ico-play" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg><svg class="ico ico-pause" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg><span class="tlabel">再生</span></button>
+    <!-- 再生 / 一時停止。ロック画面と同じ並びで、いま置かれている状態の側が点灯する (Issue #25) -->
+    <button class="tbtn xport" id="play" data-on="0" aria-pressed="false" aria-label="再生" data-i18n-aria="transport.play" data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg><span class="tlabel" data-i18n="transport.play">再生</span></button>
+    <button class="tbtn xport" id="pause" data-on="1" aria-pressed="true" aria-label="一時停止" data-i18n-aria="transport.pause" data-tip="音を止める。スペースキーでも切り替え可" data-i18n-tip="tip.pause"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg><span class="tlabel" data-i18n="transport.pause">一時停止</span></button>
     <button class="tbtn rec" id="rec" data-on="0" disabled>録音</button>
   </div>
 </header>
@@ -410,7 +411,8 @@ ja: {
   'param.harm':'和声率',
   'param.chordrhy':'刻み',
 
-  'tip.power':'再生と一時停止を切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
+  'tip.play':'音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
+  'tip.pause':'音を止める。スペースキーでも切り替え可',
   'tip.lang':'表示言語を英語に切り替える',
   'tip.recUnsupported':'この端末のブラウザは録音 (MediaRecorder) に対応していない',
   'tip.shuffle':'30秒ごとに雰囲気をランダムに切り替える',
@@ -511,7 +513,8 @@ en: {
   'param.harm':'harmony',
   'param.chordrhy':'chop',
 
-  'tip.power':'Plays and pauses the sound. Browsers block audio until you interact with the page, so press this first. The space key works too',
+  'tip.play':'Starts the sound. Browsers block audio until you interact with the page, so press this first. The space key works too',
+  'tip.pause':'Stops the sound. The space key works too',
   'tip.lang':'Switch the display language to Japanese',
   'tip.recUnsupported':'This browser does not support recording (MediaRecorder)',
   'tip.shuffle':'Switches to a random mood every 30 seconds',
@@ -1587,8 +1590,8 @@ function setupMediaSession(){
   if(!('mediaSession' in navigator)) return;
   try{
     navigator.mediaSession.metadata=mediaMetadata();
-    navigator.mediaSession.setActionHandler('play', ()=>{ if(!running) powerBtn.click(); });
-    navigator.mediaSession.setActionHandler('pause',()=>{ if(running) powerBtn.click(); });
+    navigator.mediaSession.setActionHandler('play', ()=>{ startAudio(); });
+    navigator.mediaSession.setActionHandler('pause',stopAudio);
   }catch(e){}
 }
 // mood が変わるたびに差し替える。まだ登録されていないうちは何もしない
@@ -1610,19 +1613,17 @@ document.addEventListener('visibilitychange',reviveAudio);
 // 絞られても数十秒に一度は動くため、復帰の入口としては足りる
 setInterval(reviveAudio,4000);
 
-/* ---- 発音 / 録音 ---- */
-const powerBtn=document.getElementById('power');
-const powerLabel=powerBtn.querySelector('.tlabel');
+/* ---- 再生 / 一時停止 / 録音 ---- */
+const playBtn=document.getElementById('play');
+const pauseBtn=document.getElementById('pause');
 const recBtn=document.getElementById('rec');
 
-// 再生トグルの見た目を状態に同期。ロック画面と同じく「次にする操作」を出すので、
-// 停止中は play / 再生中は pause になる (Issue #25)。アイコンの出し分けは CSS 側
+// いま置かれている状態の側を点灯させる (Issue #25)。再生中なら再生ボタンが光る
 function setPowerUI(on){
-  powerBtn.dataset.on=on?'1':'0';
-  powerBtn.setAttribute('aria-pressed',on?'true':'false');
-  const label=t(on?'transport.pause':'transport.play');
-  powerLabel.textContent=label;
-  powerBtn.setAttribute('aria-label',label);
+  playBtn.dataset.on=on?'1':'0';
+  pauseBtn.dataset.on=on?'0':'1';
+  playBtn.setAttribute('aria-pressed',on?'true':'false');
+  pauseBtn.setAttribute('aria-pressed',on?'false':'true');
 }
 setPowerUI(false);
 
@@ -1645,33 +1646,40 @@ function updateRecLabel(){
   recBtn.textContent = t(rec ? 'transport.recStop' : 'transport.rec');
 }
 
-powerBtn.addEventListener('click',async()=>{
-  if(!running){
-    // 「メディア再生」として申告してから鳴らす。順序を守らないとiOSで効かない
-    if(navigator.audioSession) try{ navigator.audioSession.type='playback'; }catch(e){}
-    if(!ctx) build();
-    await ctx.resume();
-    running=true;
-    setPowerUI(true);
-    recBtn.disabled=!REC_MIME;
-    scheduleEvents(); scheduleRoot(); scheduleGrains();
-    stepIdx=0; barCount=-1; chordPos=-1; nextStepTime=ctx.currentTime+.12;
-    await startClock();
-    routeToSink().catch(()=>{});   // 完了を待たない (待つと最初の音が遅れる)
-    setupMediaSession();
-    if('mediaSession' in navigator) navigator.mediaSession.playbackState='playing';
-  }else{
-    running=false;
-    setPowerUI(false);
-    flushDisposals();
-    uiStep=-1; renderSteps();
-    apply();
-    if(sink) sink.pause();   // 経路の判定中 (sinkActive未確定) でも止める
-    if('mediaSession' in navigator) navigator.mediaSession.playbackState='paused';
-    if(recorder&&recorder.state==='recording') stopRec();
-    recBtn.disabled=true;
-  }
-});
+// 再生中に再生ボタンを押しても何も起きない (逆も同じ)。ロック画面から来る
+// MediaSession のハンドラも同じ関数を通る
+async function startAudio(){
+  if(running) return;
+  // 「メディア再生」として申告してから鳴らす。順序を守らないとiOSで効かない
+  if(navigator.audioSession) try{ navigator.audioSession.type='playback'; }catch(e){}
+  if(!ctx) build();
+  await ctx.resume();
+  running=true;
+  setPowerUI(true);
+  recBtn.disabled=!REC_MIME;
+  scheduleEvents(); scheduleRoot(); scheduleGrains();
+  stepIdx=0; barCount=-1; chordPos=-1; nextStepTime=ctx.currentTime+.12;
+  await startClock();
+  routeToSink().catch(()=>{});   // 完了を待たない (待つと最初の音が遅れる)
+  setupMediaSession();
+  if('mediaSession' in navigator) navigator.mediaSession.playbackState='playing';
+}
+
+function stopAudio(){
+  if(!running) return;
+  running=false;
+  setPowerUI(false);
+  flushDisposals();
+  uiStep=-1; renderSteps();
+  apply();
+  if(sink) sink.pause();   // 経路の判定中 (sinkActive未確定) でも止める
+  if('mediaSession' in navigator) navigator.mediaSession.playbackState='paused';
+  if(recorder&&recorder.state==='recording') stopRec();
+  recBtn.disabled=true;
+}
+
+playBtn.addEventListener('click',()=>{ startAudio(); });
+pauseBtn.addEventListener('click',stopAudio);
 
 function stopRec(){ recorder.stop(); }
 recBtn.addEventListener('click',()=>{
@@ -1746,7 +1754,6 @@ function applyI18n(){
   for(const el of document.querySelectorAll('[data-i18n-tip]'))  el.dataset.tip=t(el.dataset.i18nTip);
   for(const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label',t(el.dataset.i18nAria));
   langBtn.textContent=lang.toUpperCase();
-  setPowerUI(running);   // 再生トグルもラベルが状態で変わるので data-i18n では扱えない
   updateRecLabel();
   updateMood();   // mood 名も訳し分ける。MediaMetadata もここで追随する
   hideTip();   // 表示中のツールチップが旧言語のまま残らないように
@@ -1764,7 +1771,7 @@ applyI18n();
 startShuffle();
 
 window.addEventListener('keydown',e=>{
-  if(e.code==='Space'&&e.target===document.body){ e.preventDefault(); powerBtn.click(); }
+  if(e.code==='Space'&&e.target===document.body){ e.preventDefault(); if(running) stopAudio(); else startAudio(); }
 });
 
 })();

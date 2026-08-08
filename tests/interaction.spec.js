@@ -30,7 +30,7 @@ test('ページ全体がスクロールしない', async ({ page }) => {
 
 test('ヘッダーのボタンとXYパッドがビューポート内に収まる', async ({ page }) => {
   const viewport = page.viewportSize();
-  for (const selector of ['#lang', '#power', '#plane']) {
+  for (const selector of ['#lang', '#play', '#pause', '#rec', '#plane']) {
     const box = await page.locator(selector).boundingBox();
     expect(box, `${selector} が見えていない`).not.toBeNull();
     expect(box.x).toBeGreaterThanOrEqual(0);
@@ -75,38 +75,42 @@ test('パッドが横長でないときは KPI が縦に4つ並ぶ', async ({ pa
   expect(clipped).toBe(false);
 });
 
-test('発音ボタンがトグルする', async ({ page }) => {
-  const power = page.locator('#power');
-  await expect(power).toHaveAttribute('aria-pressed', 'false');
-  await power.click();
-  await expect(power).toHaveAttribute('aria-pressed', 'true');
-  await power.click();
-  await expect(power).toHaveAttribute('aria-pressed', 'false');
+// 再生 / 一時停止を並べ、いま置かれている状態の側が点灯する (Issue #25)
+test('再生と一時停止が並び、現在の状態の側が点灯する', async ({ page }) => {
+  const play = page.locator('#play');
+  const pause = page.locator('#pause');
+
+  // 読み込み直後は停止中なので一時停止側が点灯
+  await expect(play).toHaveAttribute('data-on', '0');
+  await expect(pause).toHaveAttribute('data-on', '1');
+  await expect(play).toHaveAttribute('aria-pressed', 'false');
+  await expect(pause).toHaveAttribute('aria-pressed', 'true');
+
+  await play.click();
+  await expect(play).toHaveAttribute('data-on', '1');
+  await expect(pause).toHaveAttribute('data-on', '0');
+  await expect(play).toHaveAttribute('aria-pressed', 'true');
+
+  // 同じ状態への押下は何も起こさない
+  await play.click();
+  await expect(play).toHaveAttribute('data-on', '1');
+
+  await pause.click();
+  await expect(play).toHaveAttribute('data-on', '0');
+  await expect(pause).toHaveAttribute('data-on', '1');
+  await pause.click();
+  await expect(pause).toHaveAttribute('data-on', '1');
 });
 
-// ロック画面と同じく「次にする操作」を出す。停止中は play、再生中は pause (Issue #25)
-test('再生ボタンの表示が play / pause で入れ替わる', async ({ page }) => {
-  const power = page.locator('#power');
-  const shown = (cls) => power.locator(cls).evaluate((el) => getComputedStyle(el).display !== 'none');
-
+test('再生 / 一時停止のラベルは言語に追随する', async ({ page }) => {
+  const label = (id) => page.locator(`#${id} .tlabel`);
   // プロファイルによって表示言語が違うので、どちらの言語でも通る形で見る
-  await expect(power.locator('.tlabel')).toHaveText(/再生|Play/);
-  await expect(power).toHaveAttribute('aria-label', /再生|Play/);
-  expect(await shown('.ico-play')).toBe(true);
-  expect(await shown('.ico-pause')).toBe(false);
+  await expect(label('play')).toHaveText(/再生|Play/);
+  await expect(label('pause')).toHaveText(/一時停止|Pause/);
 
-  await power.click();
-  await expect(power.locator('.tlabel')).toHaveText(/一時停止|Pause/);
-  await expect(power).toHaveAttribute('aria-label', /一時停止|Pause/);
-  expect(await shown('.ico-play')).toBe(false);
-  expect(await shown('.ico-pause')).toBe(true);
-
-  // 言語を切り替えても状態に合ったラベルのまま (再生中なので一時停止側)
   await page.locator('#lang').click();
-  await expect(power.locator('.tlabel')).toHaveText(/一時停止|Pause/);
-
-  await power.click();
-  await expect(power.locator('.tlabel')).toHaveText(/再生|Play/);
+  await expect(label('play')).toHaveText(/再生|Play/);
+  await expect(label('pause')).toHaveText(/一時停止|Pause/);
 });
 
 test('XYパッドの操作で明るさが変わる', async ({ page }, testInfo) => {
@@ -206,7 +210,7 @@ test.describe('ツールチップ', () => {
 
   test('hover で出て、5秒でゆっくり消える', async ({ page }) => {
     // ポインタを動かさないと mouseout が来ないので出しっぱなしになっていた (Issue #11)
-    await page.locator('#power').hover();
+    await page.locator('#play').hover();
     await expect(page.locator('#tip')).toHaveClass(/\bon\b/);
     await expect(page.locator('#tip')).toHaveText(/.+/);
     // フェードイン (.12s) を待ってから測る
@@ -223,18 +227,18 @@ test.describe('ツールチップ', () => {
   });
 
   test('ポインタを外すとすぐ消える', async ({ page }) => {
-    await page.locator('#power').hover();
+    await page.locator('#play').hover();
     await expect(page.locator('#tip')).toHaveClass(/\bon\b/);
     await page.locator('.mark').hover();
     await expect.poll(() => opacity(page), { timeout: 2000 }).toBe(0);
   });
 
   test('消えたあと同じ要素に hover し直すと出る', async ({ page }) => {
-    await page.locator('#power').hover();
+    await page.locator('#play').hover();
     await page.waitForTimeout(6500);
     expect(await opacity(page)).toBe(0);
     await page.locator('.mark').hover();
-    await page.locator('#power').hover();
+    await page.locator('#play').hover();
     await expect(page.locator('#tip')).toHaveClass(/\bon\b/);
     await expect.poll(() => opacity(page), { timeout: 2000 }).toBe(1);
   });
