@@ -65,8 +65,10 @@
   .tbtn[data-on="1"]{background:var(--amber);color:#101A22;border-color:var(--amber)}
   .tbtn.rec[data-on="1"]{background:var(--oxide);color:#F4EFE0;border-color:var(--oxide)}
   .tbtn[disabled]{opacity:.35;cursor:not-allowed}
-  /* 言語切替。狭幅でヘッダーが折り返さないよう他の .tbtn より詰める */
-  .tbtn.lang{padding:.5rem .7rem;letter-spacing:.18em}
+  /* 言語切替はバージョン表示と同じ字面 (.sub) で、その隣に置く。
+     枠を持たない代わりに hover と focus で押せることを示す */
+  .sub.lang{padding:0;opacity:.6;transition:color .18s,opacity .18s}
+  .sub.lang:hover{color:var(--amber);opacity:1}
   /* 再生 / 一時停止。ロック画面と同じ2つを並べ、現在の状態の側が点灯する (Issue #25) */
   .tbtn.xport{display:inline-flex;align-items:center;gap:.5rem}
   .tbtn.xport .ico{width:.66rem;height:.66rem;fill:currentColor;flex-shrink:0}
@@ -242,14 +244,14 @@
     header{gap:.6rem;padding:.6rem .8rem .55rem}
     /* タグラインは省くが、バージョンはタイトルの右に小さく残す */
     header .tagline{display:none}
-    .ver,.mood{font-size:.6rem;letter-spacing:.12em}
-    /* 言語ボタンが増えた分、transport が1行に収まるよう詰める */
+    .ver,.lang,.mood{font-size:.6rem;letter-spacing:.12em}
+    /* transport が1行に収まるよう詰める */
     .transport{gap:.4rem}
     .tbtn{padding:.5rem .8rem}
-    .tbtn.lang{padding:.5rem .6rem}
-    /* 再生ボタンが2つに増えた分、狭幅ではアイコンだけにして1行を守る (aria-label は残る) */
-    .tbtn.xport .tlabel{display:none}
-    .tbtn.xport{padding:.5rem .7rem}
+    /* 再生ボタンが2つに増えた分、狭幅ではアイコンだけにする (aria-label は残る)。
+       録音はラベルで状態 (停止 / 保存・録音不可) を伝えるので文字を残す */
+    #play .tlabel,#pause .tlabel{display:none}
+    #play,#pause{padding:.5rem .7rem}
     .tabs{display:flex;background:rgba(0,0,0,.21);border-bottom:1px solid var(--line);flex:none}
     main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
     /* 属性セレクタを噛ませて .plane-wrap のクラス指定より詳細度を上げる */
@@ -284,14 +286,16 @@
   <div class="mark">Elevator One</div>
   <div class="sub tagline">generative ambient / minimal / drone</div>
   <div class="sub ver" id="ver"></div>
+  <!-- 言語切替はバージョンに続けて、同じ字面で置く (ボタン然とさせない) -->
+  <button class="sub lang" id="lang" data-i18n-tip="tip.lang" data-i18n-aria="transport.lang">JA</button>
   <!-- 現在の mood。中身は updateMood() が入れる -->
   <div class="sub mood" id="mood"></div>
   <div class="transport">
-    <button class="tbtn lang" id="lang" data-i18n-tip="tip.lang" data-i18n-aria="transport.lang">JA</button>
     <!-- 再生 / 一時停止。ロック画面と同じ並びで、いま置かれている状態の側が点灯する (Issue #25) -->
     <button class="tbtn xport" id="play" data-on="0" aria-pressed="false" aria-label="再生" data-i18n-aria="transport.play" data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg><span class="tlabel" data-i18n="transport.play">再生</span></button>
     <button class="tbtn xport" id="pause" data-on="1" aria-pressed="true" aria-label="一時停止" data-i18n-aria="transport.pause" data-tip="音を止める。スペースキーでも切り替え可" data-i18n-tip="tip.pause"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg><span class="tlabel" data-i18n="transport.pause">一時停止</span></button>
-    <button class="tbtn rec" id="rec" data-on="0" disabled>録音</button>
+    <!-- 録音は ● で示す。ラベルは状態で変わるので .tlabel だけ差し替える -->
+    <button class="tbtn xport rec" id="rec" data-on="0" disabled><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6"/></svg><span class="tlabel">録音</span></button>
   </div>
 </header>
 
@@ -1617,6 +1621,7 @@ setInterval(reviveAudio,4000);
 const playBtn=document.getElementById('play');
 const pauseBtn=document.getElementById('pause');
 const recBtn=document.getElementById('rec');
+const recLabel=recBtn.querySelector('.tlabel');
 
 // いま置かれている状態の側を点灯させる (Issue #25)。再生中なら再生ボタンが光る
 function setPowerUI(on){
@@ -1635,15 +1640,16 @@ const REC_MIME=(()=>{
   })||null;
 })();
 
-// 録音ボタンだけは状態でラベルが変わるので data-i18n では扱えない
+// 録音ボタンだけは状態でラベルが変わるので data-i18n では扱えない。
+// ● のアイコンを消さないよう、差し替えるのは .tlabel だけ
 function updateRecLabel(){
   if(!REC_MIME){
-    recBtn.textContent=t('transport.recUnsupported');
+    recLabel.textContent=t('transport.recUnsupported');
     recBtn.dataset.tip=t('tip.recUnsupported');
     return;
   }
   const rec = recorder && recorder.state==='recording';
-  recBtn.textContent = t(rec ? 'transport.recStop' : 'transport.rec');
+  recLabel.textContent = t(rec ? 'transport.recStop' : 'transport.rec');
 }
 
 // 再生中に再生ボタンを押しても何も起きない (逆も同じ)。ロック画面から来る
