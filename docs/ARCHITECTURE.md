@@ -178,9 +178,9 @@ I18N.ja / I18N.en  ──t(key)──▶  applyI18n()  ──▶  [data-i18n]   
 - **言語切替で作り直すDOMは無い** — スライダーもプリセットも生成時に `data-i18n*` を付けてあるので、
   `applyI18n()` がDOMを1回走査すれば全部追従する。プリセットの `<small>`（英語名）だけは
   en では見出しと同じ文字列になるため `html[lang="en"] .preset small{display:none}` で隠している
-- **例外は録音ボタンだけ** — 「録音 / 停止 / 保存 / 録音不可」は状態でラベルが変わるので
-  `updateRecLabel()` が持つ。`applyI18n()` から呼ばれる
-- 数値と単位（`BPM`, `15s`, `Hz`）と発音ボタンの `on` / `off` は言語非依存なのでカタログに入れない
+- **例外は再生ボタンと録音ボタン** — どちらも状態でラベルが変わるため `data-i18n` では扱えず、
+  `setPowerUI()` と `updateRecLabel()` が持つ。どちらも `applyI18n()` から呼ばれる
+- 数値と単位（`BPM`, `15s`, `Hz`）は言語非依存なのでカタログに入れない
 
 **文字列を足すとき**は (1) `I18N.ja` と `I18N.en` の両方に同じキーで足す、(2) 要素に
 `data-i18n`（または `-tip` / `-aria`）を付ける、の2手順だけ。片方の言語に入れ忘れると
@@ -228,6 +228,11 @@ comp ──▶ ctx.destination                                             ← �
 `MediaMetadata` の `title` には現在の mood、`artist` にはアプリ名とバージョン
 （`Elevator One v1.3`）を入れる。ロック画面と CarPlay に出るのはこの2つだけなので、
 mood が変わるたびに `updateMediaMetadata()` で差し替えている（Issue #12）。
+
+画面上の再生ボタンもロック画面に合わせてある（Issue #25）。`setPowerUI(on)` が
+`data-on` を切り替え、CSS が play / pause の SVG を出し分ける。ラベルと `aria-label` は
+ロック画面と同じく**次にする操作**（停止中は「再生」、再生中は「一時停止」）にしてあるので、
+`aria-pressed` と合わせて読み上げても状態が分かる。
 
 ### 2. `setInterval` / `setTimeout` が絞られる — 時計を音声スレッドへ移す
 

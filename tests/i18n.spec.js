@@ -12,7 +12,7 @@ test.describe('ブラウザ言語が日本語のとき', () => {
     await page.goto('/index.html');
     await expect(page.locator('html')).toHaveAttribute('lang', 'ja');
     await expect(page.locator('#lang')).toHaveText('JA');
-    await expect(page.locator('#power')).toHaveAttribute('aria-label', '発音');
+    await expect(page.locator('#power')).toHaveAttribute('aria-label', '再生');
     await expect(page.locator('#tabs .tab[data-tab="mood"]')).toHaveText('雰囲気');
     await expect(page.locator('#rec')).toHaveText(/録音|録音不可/);
     // プリセットは「静止」+ 英語名の2段表示
@@ -29,7 +29,7 @@ test.describe('ブラウザ言語が日本語以外のとき', () => {
     await page.goto('/index.html');
     await expect(page.locator('html')).toHaveAttribute('lang', 'en');
     await expect(page.locator('#lang')).toHaveText('EN');
-    await expect(page.locator('#power')).toHaveAttribute('aria-label', 'Sound');
+    await expect(page.locator('#power')).toHaveAttribute('aria-label', 'Play');
     await expect(page.locator('#tabs .tab[data-tab="mood"]')).toHaveText('mood');
     // en では英語名が見出しと重複するので <small> はCSSで隠れる (innerText は display:none を含まない)
     await expect(page.locator('.preset').first()).toHaveText('stillness', { useInnerText: true });

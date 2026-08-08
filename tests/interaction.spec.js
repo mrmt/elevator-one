@@ -84,6 +84,31 @@ test('発音ボタンがトグルする', async ({ page }) => {
   await expect(power).toHaveAttribute('aria-pressed', 'false');
 });
 
+// ロック画面と同じく「次にする操作」を出す。停止中は play、再生中は pause (Issue #25)
+test('再生ボタンの表示が play / pause で入れ替わる', async ({ page }) => {
+  const power = page.locator('#power');
+  const shown = (cls) => power.locator(cls).evaluate((el) => getComputedStyle(el).display !== 'none');
+
+  // プロファイルによって表示言語が違うので、どちらの言語でも通る形で見る
+  await expect(power.locator('.tlabel')).toHaveText(/再生|Play/);
+  await expect(power).toHaveAttribute('aria-label', /再生|Play/);
+  expect(await shown('.ico-play')).toBe(true);
+  expect(await shown('.ico-pause')).toBe(false);
+
+  await power.click();
+  await expect(power.locator('.tlabel')).toHaveText(/一時停止|Pause/);
+  await expect(power).toHaveAttribute('aria-label', /一時停止|Pause/);
+  expect(await shown('.ico-play')).toBe(false);
+  expect(await shown('.ico-pause')).toBe(true);
+
+  // 言語を切り替えても状態に合ったラベルのまま (再生中なので一時停止側)
+  await page.locator('#lang').click();
+  await expect(power.locator('.tlabel')).toHaveText(/一時停止|Pause/);
+
+  await power.click();
+  await expect(power.locator('.tlabel')).toHaveText(/再生|Play/);
+});
+
 test('XYパッドの操作で明るさが変わる', async ({ page }, testInfo) => {
   const box = await page.locator('#plane').boundingBox();
   const before = await page.locator('#rb').textContent();

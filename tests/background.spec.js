@@ -36,7 +36,7 @@ const waitForSink = page => page.waitForFunction(() => {
 
 test('発音すると出力が <audio> 要素へ移り、時計が AudioWorklet になる', async ({ page }) => {
   await page.goto('/index.html');
-  await page.getByRole('button', { name: /発音|Sound/ }).click();
+  await page.locator('#power').click();
   await waitForSink(page);
 
   const state = await page.evaluate(() => {
@@ -61,7 +61,7 @@ test('発音すると出力が <audio> 要素へ移り、時計が AudioWorklet 
 test('MediaMetadata に現在の mood とアプリ名が入る', async ({ page }) => {
   await page.goto('/index.html');
   const mood = await page.locator('#mood').textContent();
-  await page.getByRole('button', { name: /発音|Sound/ }).click();
+  await page.locator('#power').click();
   await waitForSink(page);
 
   const meta = () => page.evaluate(() => {
@@ -79,7 +79,7 @@ test('MediaMetadata に現在の mood とアプリ名が入る', async ({ page }
 
 test('音声時計がシーケンサを進め続ける', async ({ page }) => {
   await page.goto('/index.html');
-  await page.getByRole('button', { name: /発音|Sound/ }).click();
+  await page.locator('#power').click();
   await page.waitForTimeout(1000);
 
   const nowStep = () => page.evaluate(
@@ -133,7 +133,7 @@ test('タイマーが絞られても鳴り終わったノードが積み上が�
       el.dispatchEvent(new Event('input'));
     }
   });
-  await page.getByRole('button', { name: /発音|Sound/ }).click();
+  await page.locator('#power').click();
   await waitForSink(page);
 
   const peak = () => page.evaluate(() => Math.max(...window.__inputs.values()));
@@ -151,7 +151,7 @@ test('タイマーが絞られても鳴り終わったノードが積み上が�
 // 画面ロック中に割り込みで止められても、前面に戻る操作を待たずに鳴らし直す (Issue #23)
 test('外から止められても自力で再生に戻る', async ({ page }) => {
   await page.goto('/index.html');
-  await page.getByRole('button', { name: /発音|Sound/ }).click();
+  await page.locator('#power').click();
   await waitForSink(page);
 
   await page.evaluate(() => document.querySelector('audio').pause());
@@ -161,7 +161,7 @@ test('外から止められても自力で再生に戻る', async ({ page }) => 
 
 test('発音を止めるとメディア要素も止まる', async ({ page }) => {
   await page.goto('/index.html');
-  const power = page.getByRole('button', { name: /発音|Sound/ });
+  const power = page.locator('#power');
   await power.click();
   await waitForSink(page);
   await power.click();

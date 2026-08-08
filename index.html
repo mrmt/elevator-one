@@ -67,16 +67,12 @@
   .tbtn[disabled]{opacity:.35;cursor:not-allowed}
   /* 言語切替。狭幅でヘッダーが折り返さないよう他の .tbtn より詰める */
   .tbtn.lang{padding:.5rem .7rem;letter-spacing:.18em}
-  /* トグルボタン: LED と on/off 表示で状態を明示 */
+  /* 再生トグル: ロック画面と同じく play / pause アイコンで状態を示す (Issue #25) */
   .tbtn.toggle{display:inline-flex;align-items:center;gap:.55rem}
-  .tbtn.toggle .led{
-    width:.5rem;height:.5rem;border-radius:50%;
-    background:var(--dim);opacity:.5;
-    transition:background .18s,opacity .18s,box-shadow .18s;
-  }
-  .tbtn.toggle[data-on="1"] .led{background:#101A22;opacity:1;box-shadow:0 0 0 3px rgba(16,26,34,.18)}
-  .tbtn.toggle .tstate{font-size:.62rem;letter-spacing:.16em;opacity:.6;min-width:2.1em;text-align:right}
-  .tbtn.toggle[data-on="1"] .tstate{opacity:.85}
+  .tbtn.toggle .ico{width:.66rem;height:.66rem;fill:currentColor;flex-shrink:0}
+  .tbtn.toggle .ico-pause,
+  .tbtn.toggle[data-on="1"] .ico-play{display:none}
+  .tbtn.toggle[data-on="1"] .ico-pause{display:inline-block}
 
   /* ---- タブ (狭幅時のみ表示) ---- */
   .tabs{display:none}
@@ -292,7 +288,8 @@
   <div class="sub mood" id="mood"></div>
   <div class="transport">
     <button class="tbtn lang" id="lang" data-i18n-tip="tip.lang" data-i18n-aria="transport.lang">JA</button>
-    <button class="tbtn toggle" id="power" data-on="0" aria-pressed="false" aria-label="発音" data-i18n-aria="transport.power" data-tip="発音のon/offを切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.power"><span class="led" aria-hidden="true"></span><span data-i18n="transport.power">発音</span><span class="tstate" aria-hidden="true">off</span></button>
+    <!-- ラベルとアイコンは状態で変わるので data-i18n では扱えない。setPowerUI() が入れる -->
+    <button class="tbtn toggle" id="power" data-on="0" aria-pressed="false" aria-label="再生" data-tip="再生と一時停止を切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.power"><svg class="ico ico-play" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg><svg class="ico ico-pause" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg><span class="tlabel">再生</span></button>
     <button class="tbtn rec" id="rec" data-on="0" disabled>録音</button>
   </div>
 </header>
@@ -366,7 +363,8 @@
 <script>
 const I18N = {
 ja: {
-  'transport.power':'発音',
+  'transport.play':'再生',
+  'transport.pause':'一時停止',
   'transport.rec':'録音',
   'transport.recStop':'停止 / 保存',
   'transport.recUnsupported':'録音不可',
@@ -412,7 +410,7 @@ ja: {
   'param.harm':'和声率',
   'param.chordrhy':'刻み',
 
-  'tip.power':'発音のon/offを切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
+  'tip.power':'再生と一時停止を切り替える。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
   'tip.lang':'表示言語を英語に切り替える',
   'tip.recUnsupported':'この端末のブラウザは録音 (MediaRecorder) に対応していない',
   'tip.shuffle':'30秒ごとに雰囲気をランダムに切り替える',
@@ -467,7 +465,8 @@ ja: {
   'footer.note':'白い十字が目標、琥珀のランプが現在の音。推移時間をかけて追いつきます',
 },
 en: {
-  'transport.power':'Sound',
+  'transport.play':'Play',
+  'transport.pause':'Pause',
   'transport.rec':'Record',
   'transport.recStop':'Stop / Save',
   'transport.recUnsupported':'Unavailable',
@@ -512,7 +511,7 @@ en: {
   'param.harm':'harmony',
   'param.chordrhy':'chop',
 
-  'tip.power':'Toggles the sound on and off. Browsers block audio until you interact with the page, so press this first. The space key works too',
+  'tip.power':'Plays and pauses the sound. Browsers block audio until you interact with the page, so press this first. The space key works too',
   'tip.lang':'Switch the display language to Japanese',
   'tip.recUnsupported':'This browser does not support recording (MediaRecorder)',
   'tip.shuffle':'Switches to a random mood every 30 seconds',
@@ -1613,14 +1612,17 @@ setInterval(reviveAudio,4000);
 
 /* ---- 発音 / 録音 ---- */
 const powerBtn=document.getElementById('power');
-const powerState=powerBtn.querySelector('.tstate');
+const powerLabel=powerBtn.querySelector('.tlabel');
 const recBtn=document.getElementById('rec');
 
-// 発音トグルの見た目を状態に同期 (ラベルは「発音」固定。on/off は言語非依存)
+// 再生トグルの見た目を状態に同期。ロック画面と同じく「次にする操作」を出すので、
+// 停止中は play / 再生中は pause になる (Issue #25)。アイコンの出し分けは CSS 側
 function setPowerUI(on){
   powerBtn.dataset.on=on?'1':'0';
   powerBtn.setAttribute('aria-pressed',on?'true':'false');
-  powerState.textContent=on?'on':'off';
+  const label=t(on?'transport.pause':'transport.play');
+  powerLabel.textContent=label;
+  powerBtn.setAttribute('aria-label',label);
 }
 setPowerUI(false);
 
@@ -1744,6 +1746,7 @@ function applyI18n(){
   for(const el of document.querySelectorAll('[data-i18n-tip]'))  el.dataset.tip=t(el.dataset.i18nTip);
   for(const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label',t(el.dataset.i18nAria));
   langBtn.textContent=lang.toUpperCase();
+  setPowerUI(running);   // 再生トグルもラベルが状態で変わるので data-i18n では扱えない
   updateRecLabel();
   updateMood();   // mood 名も訳し分ける。MediaMetadata もここで追随する
   hideTip();   // 表示中のツールチップが旧言語のまま残らないように
