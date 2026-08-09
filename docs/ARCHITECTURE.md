@@ -240,7 +240,7 @@ out ──▶ ctx.destination                                             ← �
 ロック画面やコントロールセンターに出る操作ボタンはこれ。
 
 `MediaMetadata` の `title` には現在の mood、`artist` にはアプリ名とバージョン
-（`Elevator One v1.3`）を入れる。ロック画面と CarPlay に出るのはこの2つだけなので、
+（`Elevator One v1.4`）を入れる。ロック画面と CarPlay に出るのはこの2つだけなので、
 mood が変わるたびに `updateMediaMetadata()` で差し替えている（Issue #12）。
 
 画面上のボタンもロック画面に合わせ、**再生と一時停止を並べてある**（Issue #25）。
