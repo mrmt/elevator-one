@@ -57,8 +57,11 @@ XYパッド（明るさ/密度）も同じ仕組みに乗っている。`target.
 dry      … 直接音
 revSend  … コンボリューションリバーブ（impulse 7秒, decay 2.4）へ
 dlySend  … フィードバック付きディレイ（左右ではなくモノラル1系統、フィルタ付き）へ
-master   … dry/reverb/delay の合流点。DynamicsCompressor を経て出力へ
-           (出力先は destination か <audio> 要素。「バックグラウンド再生」節を見ること)
+master   … dry/reverb/delay の合流点
+comp     … DynamicsCompressor
+makeup   … コンプで削った分を戻すゲイン (volume が 80 を超えた分だけ持ち上がる)
+out      … tanh のソフトクリッパー (WaveShaper)。最終段でピークを 1.0 未満に丸める
+           出力先は destination か <audio> 要素 (「バックグラウンド再生」節を見ること)
 ```
 
 ドローン、ノイズ、金属共鳴、質感チェーン、シーケンサ、展開パッド——すべて最終的に
@@ -130,6 +133,10 @@ droneBus → texIn(gain) → shaper(WaveShaper) → texHP → texLP → ringGate
 
 ## UI ⇄ 状態の対応
 
+- 音量スライダー (`#s_volume`、0〜100、既定80) だけは他と単位が違う。`volume/80` を `target.level` に
+  写す (80 で 1.0 に頭打ち) ので、音源側の `c.level` 参照は従来のまま動く。80 を超えた分は
+  `boost = (volume-80)/20` として `apply()` がコンプ (threshold / knee / ratio / attack) と
+  `makeup`・`master` に配る。このスライダーも `stopShuffle()` を呼ばない (出力音量であって雰囲気ではない)
 - スライダー・XYパッド・プリセットボタンはすべて `target[key]` を書き換えるだけで、
   音への反映は前述の補間ループと `apply()` に一任している。UI側に音声処理は一切ない
 - プリセットは `applyPreset(idx, btn)` 経由で適用。手動操作（スライダー/XYパッド/プリセット直接選択）は
@@ -212,14 +219,14 @@ iOS の Safari は画面ロックやバックグラウンド遷移で、2つの�
 発音開始時に `routeToSink()` が出力経路を差し替える。
 
 ```
-comp ──▶ streamDest (MediaStreamDestination) ──▶ <audio>.srcObject   ← 差し替え後
-comp ──▶ ctx.destination                                             ← 差し替え前 / 失敗時
+out ──▶ streamDest (MediaStreamDestination) ──▶ <audio>.srcObject   ← 差し替え後
+out ──▶ ctx.destination                                             ← 差し替え前 / 失敗時
 ```
 
 `streamDest` は録音用に元からあったものを共用している。iOS には `play()` が解決しても
 音が出ない事例があるため、**`currentTime` が実際に進んだときだけ**成功とみなす
 (`sinkAdvances()` が100ms間隔で最大1.5秒見る。固定待ちにすると負荷の高い端末で誤って
-失敗と判定してしまう)。成功したときに初めて `comp.disconnect(ctx.destination)` する。
+失敗と判定してしまう)。成功したときに初めて `out.disconnect(ctx.destination)` する。
 失敗したら `<audio>` を止めて destination へ繋ぎ直すので、対応していない環境でも従来どおり鳴る。
 
 判定中に発音を止められることがあるので、停止側は `sinkActive` の確定を待たずに
