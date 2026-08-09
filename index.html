@@ -412,7 +412,7 @@ ja: {
   'param.tension':'緊張',
   'param.space':'空間',
   'param.grit':'ざらつき',
-  'param.level':'音量',
+  'param.volume':'音量',
   'param.glide':'推移時間',
   'param.seq':'音量',
   'param.tempo':'速度',
@@ -439,7 +439,7 @@ ja: {
   'tip.tension':'和音の音程を協和から不協和へ連続的に変える',
   'tip.space':'リバーブとディレイの量。奥行きと余韻の長さ',
   'tip.grit':'ドローンの表面を荒らす。歪み・リングモジュレーション・微細な粉塵ノイズが増え、上げるほど金属を削るような粗いテクスチャになる',
-  'tip.level':'出力レベル',
+  'tip.volume':'出力音量。80 が従来の最大で、それより上げるとリミッターで音圧を稼ぐ',
   'tip.seq':'シーケンサ全体の音量。0にするとドローンだけになる',
   'tip.tempo':'シーケンスのテンポ。55〜150 BPM。推移時間をかけて加減速する',
   'tip.mutate':'1小節ごとに音程・ゲート・オクターブが書き換わる確率',
@@ -518,7 +518,7 @@ en: {
   'param.tension':'tension',
   'param.space':'space',
   'param.grit':'grit',
-  'param.level':'level',
+  'param.volume':'volume',
   'param.glide':'glide',
   'param.seq':'level',
   'param.tempo':'tempo',
@@ -545,7 +545,7 @@ en: {
   'tip.tension':'Bends the chord intervals continuously from consonant to dissonant',
   'tip.space':'Amount of reverb and delay. Depth, and the length of the tail',
   'tip.grit':'Roughens the surface of the drone. Distortion, ring modulation and fine dust noise come up together, and the higher it goes the more it sounds like metal being ground down',
-  'tip.level':'Output level',
+  'tip.volume':'Output volume. 80 is the old maximum; above that a limiter pushes the loudness up',
   'tip.seq':'Level of the sequencer as a whole. At 0 only the drone is left',
   'tip.tempo':'Sequence tempo, 55 to 150 BPM. Speeds up and slows down over the glide time',
   'tip.mutate':'Chance that pitch, gate and octave are rewritten every bar',
@@ -620,7 +620,9 @@ const P = {
   tension: {def:.25},
   space:   {def:.70},
   grit:    {def:.20},
-  level:   {def:.70},
+  // level は UI から直接は触らない。音量スライダー (volume 0〜100) が volume/80 を書き込む。
+  // 既定 volume=80 が level=1.0 に対応する
+  level:   {def:1.0},
   seq:     {def:.00},
   tempo:   {def:.42},
   mutate:  {def:.35},
@@ -630,7 +632,7 @@ const P = {
   chordrhy:{def:.30},
 };
 // 面（plane）で操作するのは bright / density。右のスライダーはそれ以外。
-const SLIDERS = ['weight','motion','tension','space','grit','level'];
+const SLIDERS = ['weight','motion','tension','space','grit'];
 const SEQP    = ['seq','tempo','mutate','reso','sres'];
 const HARMP   = ['harm','chordrhy'];
 
@@ -655,6 +657,8 @@ const PRESETS = [
 const target  = {}, current = {};
 for (const k in P){ target[k]=P[k].def; current[k]=P[k].def; }
 let glide = 15;          // 秒。目標に到達するおおよその時間
+let volume = 80;         // 0〜100。80 までが level 0〜1.0、80 超はマスター段のブーストに回る
+let masterOn = false;    // 前回の apply() 時点で鳴っていたか。立ち上がりだけゆっくりにするため
 let autoDrift = true;
 
 /* ============================================================
@@ -666,7 +670,7 @@ const CONSONANT = [0, 7, 12, 19, 24];
 const NEUTRAL   = [0, 5, 12, 17, 22];
 const TENSE     = [0, 1,  6, 13, 23];
 
-let ctx=null, master=null, dry=null, revSend=null, dlySend=null,
+let ctx=null, master=null, makeup=null, out=null, dry=null, revSend=null, dlySend=null,
     voices=[], noise=null, metal=[], comp=null, streamDest=null,
     recorder=null, chunks=[], running=false, ready=false,
     rootMidi=33, rootTarget=33;
@@ -756,10 +760,26 @@ function build(){
   comp.threshold.value=-14; comp.knee.value=24; comp.ratio.value=4;
   comp.attack.value=.05; comp.release.value=.6;
 
+  // DynamicsCompressorNode は自動メイクアップを持たないので、圧縮した分を戻す段を後ろに置く。
+  // volume が 80 を超えた分だけここが持ち上がる
+  makeup = ctx.createGain(); makeup.gain.value=1;
+
+  // コンプのアタック (最短3ms) をすり抜ける立ち上がりは残るので、最後に tanh で頭を丸める。
+  // 前段で半分にしてから curve の定義域 -1〜1 を実振幅 -2〜2 に見立てるので、
+  // 出力は tanh(実振幅) となり小音量では素通し、大きいところだけ 1.0 手前に漸近する
+  const clipPre = ctx.createGain(); clipPre.gain.value=.5;
+  const clip = ctx.createWaveShaper();
+  {
+    const n=2048, curve=new Float32Array(n);
+    for(let i=0;i<n;i++) curve[i]=Math.tanh((i/(n-1)*2-1)*2);
+    clip.curve=curve; clip.oversample='4x';
+  }
+  out = clip;   // destination への最終段。経路の切り替えと録音はここから取る
+
   master = ctx.createGain(); master.gain.value=0;
-  master.connect(comp).connect(ctx.destination);
+  master.connect(comp).connect(makeup).connect(clipPre).connect(clip).connect(ctx.destination);
   streamDest = ctx.createMediaStreamDestination();
-  comp.connect(streamDest);
+  out.connect(streamDest);   // 録音にも音量を反映させる
 
   dry = ctx.createGain(); dry.gain.value=.85; dry.connect(master);
 
@@ -979,7 +999,19 @@ function apply(){
   sq.tapL.lp.frequency.setTargetAtTime(expMap(c.reso,700,6000),t,T);
   sq.tapR.lp.frequency.setTargetAtTime(expMap(c.reso,600,5000),t,T);
 
-  master.gain.setTargetAtTime(running ? .28+c.level*.5 : 0, t, running?1.2:2.0);
+  // volume が 80 を超えた分 (0〜1) だけ音圧を稼ぐ。80 以下では boost=0 で従来どおり
+  const boost=Math.max(0,(volume-80)/20);
+  // コンプを深く速くしてリミッター寄りにし、削った分を makeup で戻す
+  comp.threshold.setTargetAtTime(-14-boost*10, t, T);
+  comp.knee.setTargetAtTime(24-boost*12, t, T);
+  comp.ratio.setTargetAtTime(4+boost*2, t, T);
+  comp.attack.setTargetAtTime(.05-boost*.047, t, T);
+  makeup.gain.setTargetAtTime(1+boost*1.2, t, T);
+  // マスターも合わせて持ち上げる。頭はコンプが押さえる。
+  // 立ち上がりだけ 1.2 秒かけ、鳴っている間の音量変更は即座に追従させる
+  const mt = running ? (masterOn ? .06 : 1.2) : 2.0;
+  masterOn = running;
+  master.gain.setTargetAtTime(running ? (.28+c.level*.5)*(1+boost*.25) : 0, t, mt);
 }
 
 /* ---- 単発の音（点） ---- */
@@ -1324,6 +1356,22 @@ function makeSlider(key,host){
   wrap.appendChild(r); host.appendChild(wrap);
   inputs[key]=r; updateVal(key);
 }
+// 音量。他のスライダーと違い 0〜100 で、0〜80 が従来の level 0〜1.0 にそのまま対応する。
+// 80 を超えた分は apply() の boost に回り、コンプ + makeup とマスターで音圧を稼ぐ
+{
+  const wrap=document.createElement('div'); wrap.className='param';
+  wrap.innerHTML=`<label for="s_volume"><span data-i18n="param.volume" data-i18n-tip="tip.volume"></span><span class="val" id="v_volume">${volume}</span></label>`;
+  const r=document.createElement('input');
+  r.type='range'; r.min=0; r.max=100; r.step=1; r.value=volume; r.id='s_volume';
+  r.addEventListener('input',()=>{
+    volume=parseInt(r.value,10);
+    // 音量だけは推移時間 (glide) を待たせず即座に反映する
+    target.level=current.level=Math.min(volume/80,1);
+    document.getElementById('v_volume').textContent=volume;
+    // 出力音量であって雰囲気の手動操作ではないので stopShuffle() は呼ばない
+  });
+  wrap.appendChild(r); paramsEl.appendChild(wrap);
+}
 for(const key of SLIDERS) makeSlider(key,paramsEl);
 for(const key of SEQP)    makeSlider(key,seqEl);
 for(const key of HARMP)   makeSlider(key,document.getElementById('harmparams'));
@@ -1595,7 +1643,7 @@ async function routeToSink(){
     document.body.appendChild(sink);   // 文書外の要素はiOSでの扱いが不安定なので繋いでおく
   }
   try{
-    comp.disconnect(ctx.destination);   // 二重に鳴らさないため先に切る
+    out.disconnect(ctx.destination);   // 二重に鳴らさないため先に切る
     await sink.play();
     if(await sinkAdvances()){
       sinkActive=true;
@@ -1604,7 +1652,7 @@ async function routeToSink(){
     }
   }catch(e){ /* 下のフォールバックへ */ }
   try{ sink.pause(); }catch(e){}
-  comp.connect(ctx.destination);   // 元の経路へ戻す
+  out.connect(ctx.destination);   // 元の経路へ戻す
   return false;
 }
 
