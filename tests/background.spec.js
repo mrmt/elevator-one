@@ -61,6 +61,8 @@ test('発音すると出力が <audio> 要素へ移り、時計が AudioWorklet 
 test('MediaMetadata に現在の mood とアプリ名が入る', async ({ page }) => {
   await page.goto('/index.html');
   const mood = await page.locator('#mood').textContent();
+  // バージョンはヘッダーの表示から取る (リリースのたびにテストを直さずに済ませる)
+  const version = await page.locator('#ver').textContent();
   await page.locator('#play').click();
   await waitForSink(page);
 
@@ -68,7 +70,7 @@ test('MediaMetadata に現在の mood とアプリ名が入る', async ({ page }
     const m = navigator.mediaSession?.metadata;
     return m && { title: m.title, artist: m.artist };
   });
-  expect(await meta()).toEqual({ title: mood, artist: 'Elevator One v1.3' });
+  expect(await meta()).toEqual({ title: mood, artist: `Elevator One ${version}` });
 
   // 手で値を変えると (edit) が付き、ロック画面側にも伝わる
   const box = await page.locator('#plane').boundingBox();
