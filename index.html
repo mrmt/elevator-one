@@ -314,9 +314,14 @@
       <span data-i18n="section.mood">雰囲気</span>
     </div>
     <button class="toggle" id="shuffle" aria-pressed="true" style="margin-bottom:.7rem"
-      data-tip="30秒ごとに雰囲気をランダムに切り替える" data-i18n-tip="tip.shuffle">
+      data-tip="決めた秒数ごとに雰囲気をランダムに切り替える" data-i18n-tip="tip.shuffle">
       <span data-i18n="section.shuffle">シャッフル</span><span class="lamp"></span>
     </button>
+    <!-- シャッフルの間隔。動かすと即座に次の切り替えまでの時間へ反映される -->
+    <div class="param">
+      <label for="s_shuffleSec"><span data-i18n="param.shuffleSec" data-i18n-tip="tip.shuffleSec">切り替え間隔</span><span class="val" id="v_shuffleSec">30s</span></label>
+      <input type="range" id="s_shuffleSec" min="10" max="120" step="1" value="30">
+    </div>
     <div id="presets"></div>
   </section>
 
@@ -416,6 +421,7 @@ ja: {
   'param.sres':'レゾナンス',
   'param.harm':'和声率',
   'param.chordrhy':'刻み',
+  'param.shuffleSec':'切り替え間隔',
 
   'tip.play':'音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
   'tip.pause':'音を止める。スペースキーでも切り替え可',
@@ -423,7 +429,8 @@ ja: {
   'tip.rec':'鳴っている音をそのまま録音する。止めるとファイルが保存される',
   'tip.recStop':'録音を止めてファイルに保存する',
   'tip.recUnsupported':'この端末のブラウザは録音 (MediaRecorder) に対応していない',
-  'tip.shuffle':'30秒ごとに雰囲気をランダムに切り替える',
+  'tip.shuffle':'決めた秒数ごとに雰囲気をランダムに切り替える',
+  'tip.shuffleSec':'シャッフルが次の雰囲気へ切り替わるまでの秒数',
   'tip.drift':'放置しても目標値とルート音がゆっくり自然に揺れ続ける',
   'tip.reseed':'16ステップの音程とゲートをすべて引き直す',
   'tip.glide':'目標値に追いつくまでのおおよその時間。長いほど変化がゆっくりになる',
@@ -520,6 +527,7 @@ en: {
   'param.sres':'resonance',
   'param.harm':'harmony',
   'param.chordrhy':'chop',
+  'param.shuffleSec':'interval',
 
   'tip.play':'Starts the sound. Browsers block audio until you interact with the page, so press this first. The space key works too',
   'tip.pause':'Stops the sound. The space key works too',
@@ -527,7 +535,8 @@ en: {
   'tip.rec':'Records what you hear. Stopping saves the file',
   'tip.recStop':'Stops recording and saves the file',
   'tip.recUnsupported':'This browser does not support recording (MediaRecorder)',
-  'tip.shuffle':'Switches to a random mood every 30 seconds',
+  'tip.shuffle':'Switches to a random mood at the interval you set',
+  'tip.shuffleSec':'Seconds before shuffle moves on to the next mood',
   'tip.drift':'Keeps the target values and the root note drifting slowly on their own',
   'tip.reseed':'Redraws the pitch and gate of all 16 steps',
   'tip.glide':'Roughly how long it takes to reach the target value. Longer means slower change',
@@ -1275,8 +1284,15 @@ PRESETS.forEach((pr,i)=>{
 });
 
 /* ---- シャッフル ---- */
-let shuffleTimer=null, shuffleOn=false, lastShuffleIdx=-1;
+let shuffleTimer=null, shuffleOn=false, lastShuffleIdx=-1, shuffleSec=30;
 const shuffleBtn=document.getElementById('shuffle');
+const shuffleSecEl=document.getElementById('s_shuffleSec');
+shuffleSecEl.addEventListener('input',()=>{
+  shuffleSec=parseInt(shuffleSecEl.value,10);
+  document.getElementById('v_shuffleSec').textContent=shuffleSec+'s';
+  // 動作中なら次の切り替えから新しい間隔にする (このスライダーはシャッフルを止めない)
+  if(shuffleOn){ clearInterval(shuffleTimer); shuffleTimer=setInterval(shuffleOnce,shuffleSec*1000); }
+});
 function shuffleOnce(){
   let idx;
   do{ idx=Math.floor(Math.random()*PRESETS.length); }while(idx===lastShuffleIdx && PRESETS.length>1);
@@ -1287,7 +1303,7 @@ function startShuffle(){
   shuffleOn=true; shuffleBtn.setAttribute('aria-pressed','true');
   shuffleOnce();
   clearInterval(shuffleTimer);
-  shuffleTimer=setInterval(shuffleOnce,30000);
+  shuffleTimer=setInterval(shuffleOnce,shuffleSec*1000);
 }
 function stopShuffle(){
   if(!shuffleOn) return;

@@ -136,6 +136,9 @@ droneBus → texIn(gain) → shaper(WaveShaper) → texHP → texLP → ringGate
   すべて `stopShuffle()` を呼び、シャッフル中の自動切り替えを止める
 - シャッフルは読み込み時に `startShuffle()` を呼んで既定でONにしてある。放置しても雰囲気が
   変わり続けるのが既定の体験で、手動操作をした時点でOFFになる
+- 切り替え間隔は `shuffleSec` (既定30、範囲10〜120秒)。`#s_shuffleSec` の `input` で即座に
+  `setInterval` を張り直す。このスライダーだけは意図的に `stopShuffle()` を呼ばない
+  (シャッフルの設定であって、雰囲気の手動操作ではないため)
 - XYパッド上の数値表示 (`.overlay`) は既定で縦に4つ積む。iOS の landscape のようにパッドが
   横長 (アスペクト比2以上) になると縦に入りきらないので、`.plane` をコンテナにした
   `@container pad (min-aspect-ratio: 2/1)` で2列2行に折り返す (Issue #21)。
