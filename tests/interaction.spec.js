@@ -30,7 +30,7 @@ test('ページ全体がスクロールしない', async ({ page }) => {
 
 test('ヘッダーのボタンとXYパッドがビューポート内に収まる', async ({ page }) => {
   const viewport = page.viewportSize();
-  for (const selector of ['#lang', '#play', '#pause', '#rec', '#plane']) {
+  for (const selector of ['#lang', '#play', '#pause', '#plane']) {
     const box = await page.locator(selector).boundingBox();
     expect(box, `${selector} が見えていない`).not.toBeNull();
     expect(box.x).toBeGreaterThanOrEqual(0);
@@ -115,19 +115,19 @@ test('再生 / 一時停止の読み上げ名は言語に追随する', async ({
   await expect(pause).toHaveAttribute('aria-label', /一時停止|Pause/);
 });
 
-// 3つのボタンが同じ大きさに揃っていること (Issue #30)
-test('再生 / 一時停止 / 録音のボタンは同じ大きさ', async ({ page }) => {
+// 2つのボタンが同じ大きさに揃っていること (Issue #30)
+test('再生 / 一時停止のボタンは同じ大きさ', async ({ page }) => {
   const boxes = await Promise.all(
-    ['play', 'pause', 'rec'].map((id) => page.locator(`#${id}`).boundingBox())
+    ['play', 'pause'].map((id) => page.locator(`#${id}`).boundingBox())
   );
-  for (const b of boxes.slice(1)) {
-    expect(Math.abs(b.width - boxes[0].width)).toBeLessThan(1);
-    expect(Math.abs(b.height - boxes[0].height)).toBeLessThan(1);
-  }
+  expect(Math.abs(boxes[1].width - boxes[0].width)).toBeLessThan(1);
+  expect(Math.abs(boxes[1].height - boxes[0].height)).toBeLessThan(1);
   // アイコンだけなので、テキストは持たない
-  for (const id of ['play', 'pause', 'rec']) {
+  for (const id of ['play', 'pause']) {
     expect(await page.locator(`#${id}`).innerText()).toBe('');
   }
+  // 録音機能は廃止した (Issue #34)
+  await expect(page.locator('#rec')).toHaveCount(0);
 });
 
 test('XYパッドの操作で明るさが変わる', async ({ page }, testInfo) => {

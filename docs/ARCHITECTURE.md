@@ -24,7 +24,7 @@
    - UI生成（プリセットボタン、スライダー、シャッフル、ツールチップ）
    - XYパッドの描画ループ（`draw`, マリンスノー, 背景色 `seaColors`）
    - バックグラウンド再生（`tick`, `startClock`, `routeToSink`, `setupMediaSession`）
-   - 起動/停止/録音（`startEngine`, `stopEngine`, 自動起動）
+   - 起動/停止（`startEngine`, `stopEngine`, 自動起動）
    - 表示言語の適用（`applyI18n()`）— DOMが出揃ってから呼ぶので最後
 
 ## パラメータの流れ：target → current → オーディオグラフ
@@ -175,7 +175,7 @@ classic script のトップレベル `const` はグローバルレキシカル�
 I18N.ja / I18N.en  ──t(key)──▶  applyI18n()  ──▶  [data-i18n]      textContent
       ▲                              │            [data-i18n-tip]  data-tip 属性
       │                              │            [data-i18n-aria] aria-label 属性
-   lang ('ja' | 'en')                └──────────▶ #lang のラベル / 録音ボタン / hideTip()
+   lang ('ja' | 'en')                └──────────▶ #lang のラベル / mood 表示 / hideTip()
 ```
 
 - **キーの命名** — `transport.*` / `tab.*` / `section.*` / `pad.*` / `param.<パラメータ名>` /
@@ -188,10 +188,9 @@ I18N.ja / I18N.en  ──t(key)──▶  applyI18n()  ──▶  [data-i18n]   
 - **言語切替で作り直すDOMは無い** — スライダーもプリセットも生成時に `data-i18n*` を付けてあるので、
   `applyI18n()` がDOMを1回走査すれば全部追従する。プリセットの `<small>`（英語名）だけは
   en では見出しと同じ文字列になるため `html[lang="en"] .preset small{display:none}` で隠している
-- **例外は録音ボタンだけ** — 「録音 / 停止 / 保存 / 録音不可」は状態で文言が変わるので
-  `updateRecLabel()` が `aria-label` と `data-tip` を持つ。`applyI18n()` から呼ばれる
-  （再生 / 一時停止は2つのボタンに分けたので状態で変わらず、`data-i18n*` で足りる）
-- ヘッダーの ▶ / ⏸ / ● はアイコンだけで文字を持たない (Issue #30)。3つとも `.tbtn.xport` の
+- **状態で文言が変わる要素は無い** — 録音ボタンだけが例外だったが、録音機能ごと廃止した
+  (Issue #34)。いまは `applyI18n()` の宣言的な流し込みだけで全部が追随する
+- ヘッダーの ▶ / ⏸ はアイコンだけで文字を持たない (Issue #30)。どちらも `.tbtn.xport` の
   同じ正方形で、文言は `aria-label` と `data-tip` にしかない。表示テキストが無いので
   `data-i18n` は付けず、`data-i18n-aria` / `data-i18n-tip` で言語に追随させる
 - 数値と単位（`BPM`, `15s`, `Hz`）は言語非依存なのでカタログに入れない
@@ -226,7 +225,8 @@ out ──▶ streamDest (MediaStreamDestination) ──▶ <audio>.srcObject   
 out ──▶ ctx.destination                                             ← 差し替え前 / 失敗時
 ```
 
-`streamDest` は録音用に元からあったものを共用している。iOS には `play()` が解決しても
+`streamDest` はこの経路のためだけに作っている（録音機能でも使っていたが Issue #34 で廃止した）。
+iOS には `play()` が解決しても
 音が出ない事例があるため、**`currentTime` が実際に進んだときだけ**成功とみなす
 (`sinkAdvances()` が100ms間隔で最大1.5秒見る。固定待ちにすると負荷の高い端末で誤って
 失敗と判定してしまう)。成功したときに初めて `out.disconnect(ctx.destination)` する。
@@ -252,16 +252,13 @@ mood が変わるたびに `updateMediaMetadata()` で差し替えている（Is
 
 ヘッダーの並びは次の3つで役割を分けてある。
 
-- **再生 / 一時停止 / 録音**（`.tbtn.xport`）— それぞれ ▶ / ⏸ / ● のアイコンを持つ操作ボタン。
-  録音は幅によらず ● だけで、状態（録音中はオキサイド、非対応は `disabled`）を色で示す。
-  再生と一時停止は狭幅（900px以下）でラベルを `display:none` にしてアイコンに畳み、
-  ヘッダーの1行を守る
+- **再生 / 一時停止**（`.tbtn.xport`）— ▶ / ⏸ のアイコンを持つ操作ボタン。
+  幅によらずアイコンだけの同じ正方形で、狭幅（900px以下）では2つとも一回り小さくする
 - **言語切替**（`.sub.lang`）— 操作ボタンではなく表示の切り替えなので、枠を持たせず
   バージョン表示と同じ `.sub` の字面でその隣に置く。押せることは hover と focus で示す
 
 アイコンだけのボタンでも読み上げと説明は落とさない。`aria-label` と `data-tip` は
-`data-i18n-aria` / `data-i18n-tip` で言語に追随し、録音ボタンだけは文言が状態でも変わるので
-（「録音」「停止 / 保存」「録音不可」）`updateRecLabel()` がこの2つを差し替える。
+`data-i18n-aria` / `data-i18n-tip` で言語に追随する。
 
 ### 2. `setInterval` / `setTimeout` が絞られる — 時計を音声スレッドへ移す
 
@@ -353,7 +350,8 @@ MediaStream を長時間動かし続けること自体か、iPadOS のバック�
 ### その他
 
 - ブラウザストレージ（localStorage等）は不使用。設定の永続化は一切なく、リロードで全パラメータが初期値に戻る
-- 録音は `MediaRecorder` による `audio/webm` 固定。他形式への変換は行っていない
+- 音をファイルに書き出す機能は持たない。録音は Issue #34 で廃止した（オーディオアウトからの録音や
+  BlackHole 2ch などの代替手段があり、`MediaRecorder` とファイル書き出しの経路を抱える理由が無いため）
 - オフライン専用。外部ネットワークへの通信は存在しない（CDN等も読み込んでいない）
 - キャンバス（XYパッド）は `ResizeObserver` + `window.resize` でサイズ追従するが、
   リサイズ時に `trail`（軌跡）配列をクリアしている（座標系が変わるため）
