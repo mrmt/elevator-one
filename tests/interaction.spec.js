@@ -102,15 +102,32 @@ test('再生と一時停止が並び、現在の状態の側が点灯する', as
   await expect(pause).toHaveAttribute('data-on', '1');
 });
 
-test('再生 / 一時停止のラベルは言語に追随する', async ({ page }) => {
-  const label = (id) => page.locator(`#${id} .tlabel`);
+// アイコンだけのボタンなので、文言は aria-label が持つ (Issue #30)
+test('再生 / 一時停止の読み上げ名は言語に追随する', async ({ page }) => {
+  const play = page.locator('#play');
+  const pause = page.locator('#pause');
   // プロファイルによって表示言語が違うので、どちらの言語でも通る形で見る
-  await expect(label('play')).toHaveText(/再生|Play/);
-  await expect(label('pause')).toHaveText(/一時停止|Pause/);
+  await expect(play).toHaveAttribute('aria-label', /再生|Play/);
+  await expect(pause).toHaveAttribute('aria-label', /一時停止|Pause/);
 
   await page.locator('#lang').click();
-  await expect(label('play')).toHaveText(/再生|Play/);
-  await expect(label('pause')).toHaveText(/一時停止|Pause/);
+  await expect(play).toHaveAttribute('aria-label', /再生|Play/);
+  await expect(pause).toHaveAttribute('aria-label', /一時停止|Pause/);
+});
+
+// 3つのボタンが同じ大きさに揃っていること (Issue #30)
+test('再生 / 一時停止 / 録音のボタンは同じ大きさ', async ({ page }) => {
+  const boxes = await Promise.all(
+    ['play', 'pause', 'rec'].map((id) => page.locator(`#${id}`).boundingBox())
+  );
+  for (const b of boxes.slice(1)) {
+    expect(Math.abs(b.width - boxes[0].width)).toBeLessThan(1);
+    expect(Math.abs(b.height - boxes[0].height)).toBeLessThan(1);
+  }
+  // アイコンだけなので、テキストは持たない
+  for (const id of ['play', 'pause', 'rec']) {
+    expect(await page.locator(`#${id}`).innerText()).toBe('');
+  }
 });
 
 test('XYパッドの操作で明るさが変わる', async ({ page }, testInfo) => {
