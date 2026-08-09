@@ -17,7 +17,6 @@
     --ink:#E7E2CE;
     --dim:rgba(214,226,232,.62);
     --amber:#D8A340;
-    --oxide:#AB5A38;
     --disp:'Futura','Avenir Next Condensed','Helvetica Neue',sans-serif;
     --data:'Menlo','Monaco',monospace;
   }
@@ -63,14 +62,13 @@
   }
   .tbtn:hover{background:var(--panel-hi)}
   .tbtn[data-on="1"]{background:var(--amber);color:#101A22;border-color:var(--amber)}
-  .tbtn.rec[data-on="1"]{background:var(--oxide);color:#F4EFE0;border-color:var(--oxide)}
   .tbtn[disabled]{opacity:.35;cursor:not-allowed}
   /* 言語切替はバージョン表示と同じ字面 (.sub) で、その隣に置く。
      枠を持たない代わりに hover と focus で押せることを示す */
   .sub.lang{padding:0;opacity:.6;transition:color .18s,opacity .18s}
   .sub.lang:hover{color:var(--amber);opacity:1}
-  /* 再生 / 一時停止 / 録音。ロック画面と同じ並びで、現在の状態の側が点灯する (Issue #25)。
-     3つともアイコンだけの同じ正方形にして大きさとデザインを揃える (Issue #30)。
+  /* 再生 / 一時停止。ロック画面と同じ並びで、現在の状態の側が点灯する (Issue #25)。
+     どちらもアイコンだけの同じ正方形にして大きさとデザインを揃える (Issue #30)。
      文言は aria-label とツールチップに持たせてあるので読み上げは変わらない */
   .tbtn.xport{display:inline-flex;align-items:center;justify-content:center;width:2rem;height:2rem;padding:0}
   .tbtn.xport .ico{width:.7rem;height:.7rem;fill:currentColor;flex-shrink:0}
@@ -294,8 +292,6 @@
     <!-- 再生 / 一時停止。ロック画面と同じ並びで、いま置かれている状態の側が点灯する (Issue #25) -->
     <button class="tbtn xport" id="play" data-on="0" aria-pressed="false" aria-label="再生" data-i18n-aria="transport.play" data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg></button>
     <button class="tbtn xport" id="pause" data-on="1" aria-pressed="true" aria-label="一時停止" data-i18n-aria="transport.pause" data-tip="音を止める。スペースキーでも切り替え可" data-i18n-tip="tip.pause"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg></button>
-    <!-- 録音は ● だけ。状態 (録音中 / 録音不可) は色と aria-label・ツールチップで示す -->
-    <button class="tbtn xport rec" id="rec" data-on="0" aria-label="録音" disabled><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6"/></svg></button>
   </div>
 </header>
 
@@ -375,9 +371,6 @@ const I18N = {
 ja: {
   'transport.play':'再生',
   'transport.pause':'一時停止',
-  'transport.rec':'録音',
-  'transport.recStop':'停止 / 保存',
-  'transport.recUnsupported':'録音不可',
   'transport.lang':'表示言語を切り替える',
 
   // ロック画面 / コントロールセンターに出る表示
@@ -424,9 +417,6 @@ ja: {
   'tip.play':'音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
   'tip.pause':'音を止める。スペースキーでも切り替え可',
   'tip.lang':'表示言語を英語に切り替える',
-  'tip.rec':'鳴っている音をそのまま録音する。止めるとファイルが保存される',
-  'tip.recStop':'録音を止めてファイルに保存する',
-  'tip.recUnsupported':'この端末のブラウザは録音 (MediaRecorder) に対応していない',
   'tip.shuffle':'決めた秒数ごとに雰囲気をランダムに切り替える',
   'tip.shuffleSec':'シャッフルが次の雰囲気へ切り替わるまでの秒数',
   'tip.drift':'放置しても目標値とルート音がゆっくり自然に揺れ続ける',
@@ -482,9 +472,6 @@ ja: {
 en: {
   'transport.play':'Play',
   'transport.pause':'Pause',
-  'transport.rec':'Record',
-  'transport.recStop':'Stop / Save',
-  'transport.recUnsupported':'Unavailable',
   'transport.lang':'Switch display language',
 
 
@@ -530,9 +517,6 @@ en: {
   'tip.play':'Starts the sound. Browsers block audio until you interact with the page, so press this first. The space key works too',
   'tip.pause':'Stops the sound. The space key works too',
   'tip.lang':'Switch the display language to Japanese',
-  'tip.rec':'Records what you hear. Stopping saves the file',
-  'tip.recStop':'Stops recording and saves the file',
-  'tip.recUnsupported':'This browser does not support recording (MediaRecorder)',
   'tip.shuffle':'Switches to a random mood at the interval you set',
   'tip.shuffleSec':'Seconds before shuffle moves on to the next mood',
   'tip.drift':'Keeps the target values and the root note drifting slowly on their own',
@@ -670,7 +654,7 @@ const TENSE     = [0, 1,  6, 13, 23];
 
 let ctx=null, master=null, makeup=null, out=null, dry=null, revSend=null, dlySend=null,
     voices=[], noise=null, metal=[], comp=null, streamDest=null,
-    recorder=null, chunks=[], running=false, ready=false,
+    running=false, ready=false,
     rootMidi=33, rootTarget=33;
 
 // 発火予定時刻はすべて ctx.currentTime 基準で持つ。
@@ -772,12 +756,12 @@ function build(){
     for(let i=0;i<n;i++) curve[i]=Math.tanh((i/(n-1)*2-1)*2);
     clip.curve=curve; clip.oversample='4x';
   }
-  out = clip;   // destination への最終段。経路の切り替えと録音はここから取る
+  out = clip;   // destination への最終段。経路の切り替えはここから行う
 
   master = ctx.createGain(); master.gain.value=0;
   master.connect(comp).connect(makeup).connect(clipPre).connect(clip).connect(ctx.destination);
   streamDest = ctx.createMediaStreamDestination();
-  out.connect(streamDest);   // 録音にも音量を反映させる
+  out.connect(streamDest);   // バックグラウンド再生用の <audio> へ流す経路
 
   dry = ctx.createGain(); dry.gain.value=.85; dry.connect(master);
 
@@ -1685,10 +1669,9 @@ document.addEventListener('visibilitychange',reviveAudio);
 // 絞られても数十秒に一度は動くため、復帰の入口としては足りる
 setInterval(reviveAudio,4000);
 
-/* ---- 再生 / 一時停止 / 録音 ---- */
+/* ---- 再生 / 一時停止 ---- */
 const playBtn=document.getElementById('play');
 const pauseBtn=document.getElementById('pause');
-const recBtn=document.getElementById('rec');
 
 // いま置かれている状態の側を点灯させる (Issue #25)。再生中なら再生ボタンが光る
 function setPowerUI(on){
@@ -1698,27 +1681,6 @@ function setPowerUI(on){
   pauseBtn.setAttribute('aria-pressed',on?'false':'true');
 }
 setPowerUI(false);
-
-// 端末が対応する録音形式を選ぶ。iOS の Safari / Chrome は webm 非対応
-const REC_MIME=(()=>{
-  if(typeof MediaRecorder==='undefined') return null;
-  return ['audio/webm','audio/mp4'].find(m=>{
-    try{ return MediaRecorder.isTypeSupported(m); }catch(_){ return false; }
-  })||null;
-})();
-
-// 録音ボタンは ● だけなので、状態は aria-label とツールチップで伝える。
-// 状態でこの2つが変わるため data-i18n では扱えない
-function updateRecLabel(){
-  if(!REC_MIME){
-    recBtn.setAttribute('aria-label',t('transport.recUnsupported'));
-    recBtn.dataset.tip=t('tip.recUnsupported');
-    return;
-  }
-  const rec = recorder && recorder.state==='recording';
-  recBtn.setAttribute('aria-label',t(rec ? 'transport.recStop' : 'transport.rec'));
-  recBtn.dataset.tip=t(rec ? 'tip.recStop' : 'tip.rec');
-}
 
 // 再生中に再生ボタンを押しても何も起きない (逆も同じ)。ロック画面から来る
 // MediaSession のハンドラも同じ関数を通る
@@ -1730,7 +1692,6 @@ async function startAudio(){
   await ctx.resume();
   running=true;
   setPowerUI(true);
-  recBtn.disabled=!REC_MIME;
   scheduleEvents(); scheduleRoot(); scheduleGrains();
   stepIdx=0; barCount=-1; chordPos=-1; nextStepTime=ctx.currentTime+.12;
   await startClock();
@@ -1748,34 +1709,10 @@ function stopAudio(){
   apply();
   if(sink) sink.pause();   // 経路の判定中 (sinkActive未確定) でも止める
   if('mediaSession' in navigator) navigator.mediaSession.playbackState='paused';
-  if(recorder&&recorder.state==='recording') stopRec();
-  recBtn.disabled=true;
 }
 
 playBtn.addEventListener('click',()=>{ startAudio(); });
 pauseBtn.addEventListener('click',stopAudio);
-
-function stopRec(){ recorder.stop(); }
-recBtn.addEventListener('click',()=>{
-  if(!REC_MIME) return;
-  if(!recorder||recorder.state==='inactive'){
-    chunks=[];
-    recorder=new MediaRecorder(streamDest.stream,{mimeType:REC_MIME});
-    recorder.ondataavailable=e=>{ if(e.data.size) chunks.push(e.data); };
-    recorder.onstop=()=>{
-      const blob=new Blob(chunks,{type:REC_MIME});
-      const a=document.createElement('a');
-      a.href=URL.createObjectURL(blob);
-      a.download='elevator-one-'+new Date().toISOString().replace(/[:.]/g,'-')+(REC_MIME==='audio/mp4'?'.m4a':'.webm');
-      a.click();
-      recBtn.dataset.on='0'; updateRecLabel();
-    };
-    recorder.start();
-    recBtn.dataset.on='1'; updateRecLabel();
-  }else{
-    stopRec();
-  }
-});
 
 /* ---- タブ切替 (狭幅時のみ表示) ---- */
 const mainEl=document.getElementById('main');
@@ -1828,7 +1765,6 @@ function applyI18n(){
   for(const el of document.querySelectorAll('[data-i18n-tip]'))  el.dataset.tip=t(el.dataset.i18nTip);
   for(const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label',t(el.dataset.i18nAria));
   langBtn.textContent=lang.toUpperCase();
-  updateRecLabel();
   updateMood();   // mood 名も訳し分ける。MediaMetadata もここで追随する
   hideTip();   // 表示中のツールチップが旧言語のまま残らないように
 }
