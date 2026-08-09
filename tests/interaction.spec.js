@@ -146,6 +146,18 @@ test('シャッフルが既定でONになっている', async ({ page }, testInf
   await expect(page.locator('.preset[aria-pressed="true"]')).toHaveCount(1);
 });
 
+test('シャッフルの間隔スライダーは即座に反映され、シャッフルを止めない', async ({ page }, testInfo) => {
+  if (isTouch(testInfo)) await page.locator('#tabs .tab[data-tab="mood"]').tap();
+  const slider = page.locator('#s_shuffleSec');
+  await expect(slider).toHaveValue('30');
+  await expect(slider).toHaveAttribute('min', '10');
+  await expect(slider).toHaveAttribute('max', '120');
+  await slider.fill('75');
+  await slider.dispatchEvent('input');
+  await expect(page.locator('#v_shuffleSec')).toHaveText('75s');
+  await expect(page.locator('#shuffle')).toHaveAttribute('aria-pressed', 'true');
+});
+
 test.describe('現在の mood の表示', () => {
   // シャッフル中は mood タブを開かないと何が鳴っているのか分からなかった (Issue #12)
   const moodText = (page) => page.locator('#mood').textContent();
