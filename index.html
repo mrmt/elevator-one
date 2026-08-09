@@ -69,11 +69,11 @@
      枠を持たない代わりに hover と focus で押せることを示す */
   .sub.lang{padding:0;opacity:.6;transition:color .18s,opacity .18s}
   .sub.lang:hover{color:var(--amber);opacity:1}
-  /* 再生 / 一時停止。ロック画面と同じ2つを並べ、現在の状態の側が点灯する (Issue #25) */
-  .tbtn.xport{display:inline-flex;align-items:center;gap:.5rem}
-  .tbtn.xport .ico{width:.66rem;height:.66rem;fill:currentColor;flex-shrink:0}
-  /* 録音はアイコンだけなので左右の余白を詰めて正方形に近づける */
-  .tbtn.xport.rec{padding:.5rem .9rem}
+  /* 再生 / 一時停止 / 録音。ロック画面と同じ並びで、現在の状態の側が点灯する (Issue #25)。
+     3つともアイコンだけの同じ正方形にして大きさとデザインを揃える (Issue #30)。
+     文言は aria-label とツールチップに持たせてあるので読み上げは変わらない */
+  .tbtn.xport{display:inline-flex;align-items:center;justify-content:center;width:2rem;height:2rem;padding:0}
+  .tbtn.xport .ico{width:.7rem;height:.7rem;fill:currentColor;flex-shrink:0}
 
   /* ---- タブ (狭幅時のみ表示) ---- */
   .tabs{display:none}
@@ -250,10 +250,8 @@
     /* transport が1行に収まるよう詰める */
     .transport{gap:.4rem}
     .tbtn{padding:.5rem .8rem}
-    /* 再生ボタンが2つに増えた分、狭幅ではラベルも畳んでアイコンだけにする
-       (aria-label は残るので読み上げは変わらない) */
-    #play .tlabel,#pause .tlabel{display:none}
-    #play,#pause,.tbtn.xport.rec{padding:.5rem .7rem}
+    /* アイコンボタンは3つとも同じだけ小さくする */
+    .tbtn.xport{width:1.8rem;height:1.8rem}
     .tabs{display:flex;background:rgba(0,0,0,.21);border-bottom:1px solid var(--line);flex:none}
     main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr)}
     /* 属性セレクタを噛ませて .plane-wrap のクラス指定より詳細度を上げる */
@@ -294,8 +292,8 @@
   <div class="sub mood" id="mood"></div>
   <div class="transport">
     <!-- 再生 / 一時停止。ロック画面と同じ並びで、いま置かれている状態の側が点灯する (Issue #25) -->
-    <button class="tbtn xport" id="play" data-on="0" aria-pressed="false" aria-label="再生" data-i18n-aria="transport.play" data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg><span class="tlabel" data-i18n="transport.play">再生</span></button>
-    <button class="tbtn xport" id="pause" data-on="1" aria-pressed="true" aria-label="一時停止" data-i18n-aria="transport.pause" data-tip="音を止める。スペースキーでも切り替え可" data-i18n-tip="tip.pause"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg><span class="tlabel" data-i18n="transport.pause">一時停止</span></button>
+    <button class="tbtn xport" id="play" data-on="0" aria-pressed="false" aria-label="再生" data-i18n-aria="transport.play" data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg></button>
+    <button class="tbtn xport" id="pause" data-on="1" aria-pressed="true" aria-label="一時停止" data-i18n-aria="transport.pause" data-tip="音を止める。スペースキーでも切り替え可" data-i18n-tip="tip.pause"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg></button>
     <!-- 録音は ● だけ。状態 (録音中 / 録音不可) は色と aria-label・ツールチップで示す -->
     <button class="tbtn xport rec" id="rec" data-on="0" aria-label="録音" disabled><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="4.6"/></svg></button>
   </div>
