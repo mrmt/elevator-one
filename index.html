@@ -172,6 +172,25 @@
     .overlay .k{font-size:clamp(.6rem,2.2vh,.82rem)}
   }
 
+  /* ---- パッド中央の再生開始ボタン (Issue #36) ---- */
+  /* 右上の小さな再生ボタンでは「まず押さないと音が出ない」ことに気づけない。
+     YouTube と同じくパッドの中央へ大きく置き、再生が始まったら消す */
+  .bigplay{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    z-index:5;
+    display:flex;align-items:center;justify-content:center;
+    width:clamp(4.2rem,26cqmin,9rem);aspect-ratio:1;
+    border:1px solid var(--line);border-radius:50%;
+    background:rgba(14,23,32,.55);color:var(--ink);
+    -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+    cursor:pointer;
+    transition:background .18s,border-color .18s,color .18s;
+  }
+  /* 三角形は重心が左に寄って見えるので、右へ少しずらして中央に見せる */
+  .bigplay .ico{width:34%;height:34%;fill:currentColor;margin-left:7%}
+  .bigplay:hover{background:var(--amber);border-color:var(--amber);color:#101A22}
+  .bigplay[hidden]{display:none}
+
   /* ---- tooltip ---- */
   #tip{
     position:fixed;z-index:60;max-width:15rem;pointer-events:none;
@@ -333,6 +352,8 @@
           <div><span class="k" data-i18n="pad.density">密度</span><b id="rd">—</b></div>
           <div><span class="k" data-i18n="pad.tension">緊張</span><b id="rt">—</b></div>
         </div>
+        <button class="bigplay" id="bigplay" aria-label="再生" data-i18n-aria="transport.play"
+          data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg></button>
       </div>
     </div>
     <div class="axis"><span data-i18n="pad.dark">暗</span><span style="color:var(--ink)" data-i18n="pad.bright">明るさ</span><span data-i18n="pad.light">明</span></div>
@@ -1672,6 +1693,7 @@ setInterval(reviveAudio,4000);
 /* ---- 再生 / 一時停止 ---- */
 const playBtn=document.getElementById('play');
 const pauseBtn=document.getElementById('pause');
+const bigPlayBtn=document.getElementById('bigplay');
 
 // いま置かれている状態の側を点灯させる (Issue #25)。再生中なら再生ボタンが光る
 function setPowerUI(on){
@@ -1679,6 +1701,8 @@ function setPowerUI(on){
   pauseBtn.dataset.on=on?'0':'1';
   playBtn.setAttribute('aria-pressed',on?'true':'false');
   pauseBtn.setAttribute('aria-pressed',on?'false':'true');
+  // 中央の大きな再生ボタンは、再生が始まったらパッドの邪魔なので消す (Issue #36)
+  bigPlayBtn.hidden=on;
 }
 setPowerUI(false);
 
@@ -1712,6 +1736,9 @@ function stopAudio(){
 }
 
 playBtn.addEventListener('click',()=>{ startAudio(); });
+bigPlayBtn.addEventListener('click',()=>{ startAudio(); });
+// パッド上に載っているため、押しただけで目標が動いてしまわないよう伝播を止める
+bigPlayBtn.addEventListener('pointerdown',e=>e.stopPropagation());
 pauseBtn.addEventListener('click',stopAudio);
 
 /* ---- タブ切替 (狭幅時のみ表示) ---- */

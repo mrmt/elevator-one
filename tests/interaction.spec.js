@@ -102,6 +102,43 @@ test('再生と一時停止が並び、現在の状態の側が点灯する', as
   await expect(pause).toHaveAttribute('data-on', '1');
 });
 
+// XYパッドの中央に大きな再生開始ボタンを置く (Issue #36)
+test('パッド中央の再生ボタンで再生でき、再生中は消える', async ({ page }) => {
+  const big = page.locator('#bigplay');
+  const pad = page.locator('#plane');
+
+  await expect(big).toBeVisible();
+  await expect(big).toHaveAttribute('aria-label', /再生|Play/);
+
+  // パッドの中央にあり、ヘッダーの再生ボタンよりずっと大きい
+  const bigBox = await big.boundingBox();
+  const padBox = await pad.boundingBox();
+  expect(Math.abs((bigBox.x + bigBox.width / 2) - (padBox.x + padBox.width / 2))).toBeLessThan(2);
+  expect(Math.abs((bigBox.y + bigBox.height / 2) - (padBox.y + padBox.height / 2))).toBeLessThan(2);
+  const smallBox = await page.locator('#play').boundingBox();
+  expect(bigBox.width).toBeGreaterThan(smallBox.width * 2);
+
+  await big.click();
+  await expect(page.locator('#play')).toHaveAttribute('data-on', '1');
+  await expect(big).toBeHidden();
+
+  // 止めればまた出る
+  await page.locator('#pause').click();
+  await expect(big).toBeVisible();
+});
+
+// パッドの上に載っているので、押しても目標値が動いてはいけない (Issue #36)
+test('パッド中央の再生ボタンを押しても目標値は動かない', async ({ page }) => {
+  // パッドは pointerdown を受けた地点へ目標を飛ばすので、そこへ届かないことを見る
+  await page.locator('#plane').evaluate((el) => {
+    window.__padHit = 0;
+    el.addEventListener('pointerdown', () => { window.__padHit++; });
+  });
+  await page.locator('#bigplay').click();
+  await expect(page.locator('#play')).toHaveAttribute('data-on', '1');
+  expect(await page.evaluate(() => window.__padHit)).toBe(0);
+});
+
 // アイコンだけのボタンなので、文言は aria-label が持つ (Issue #30)
 test('再生 / 一時停止の読み上げ名は言語に追随する', async ({ page }) => {
   const play = page.locator('#play');
