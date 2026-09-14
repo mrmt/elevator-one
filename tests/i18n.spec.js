@@ -35,6 +35,12 @@ test.describe('ブラウザ言語が日本語以外のとき', () => {
     await expect(page.locator('.preset small').first()).toBeHidden();
   });
 
+  test('ホームアイコンの aria-label がブロッカーに拾われる文言でない', async ({ page }) => {
+    // "Back to top" はコンテンツブロッカーのフィルタに一致し、アイコンごと隠される
+    await page.goto('/index.html');
+    await expect(page.locator('header a.home')).toHaveAttribute('aria-label', 'Home');
+  });
+
   test('画面に日本語が残らない', async ({ page }) => {
     await page.goto('/index.html');
 
