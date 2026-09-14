@@ -56,6 +56,20 @@ test('バージョンがタイトルの右に表示される', async ({ page }) 
   expect(await size('.ver')).toBeLessThan(await size('.mark'));
 });
 
+test('タイトルの左にアイコンがあり、親ディレクトリへリンクする', async ({ page }) => {
+  const home = page.locator('header a.home');
+  await expect(home).toBeVisible();
+  await expect(home).toHaveAttribute('href', '../');
+  // SVG は index.html に直書きしてあり、外部ファイルを読まない
+  await expect(home.locator('svg')).toHaveCount(1);
+  const icon = await home.boundingBox();
+  const mark = await page.locator('.mark').boundingBox();
+  // タイトルの左、かつ同じ行にある
+  expect(icon.x + icon.width).toBeLessThanOrEqual(mark.x + 2);
+  expect(icon.y + icon.height / 2).toBeGreaterThan(mark.y);
+  expect(icon.y + icon.height / 2).toBeLessThan(mark.y + mark.height);
+});
+
 test('XYパッドが操作に足るサイズを持つ', async ({ page }) => {
   // セクションが1画面に詰め込まれるとパッドが潰れて事実上操作できなくなる (Issue #2)。
   // 実測値は iPhone 375px / iPad 821px / desktop 662px、潰れると 111px まで縮む
