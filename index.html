@@ -71,6 +71,9 @@
      枠を持たない代わりに hover と focus で押せることを示す */
   .sub.lang{padding:0;opacity:.6;transition:color .18s,opacity .18s}
   .sub.lang:hover{color:var(--amber);opacity:1}
+  /* 解説ページ (about.html) へのリンク。言語切替と同じ字面で、再生ボタンの左に置く */
+  .sub.manual{text-decoration:none;margin-right:.35rem;opacity:.6;transition:color .18s,opacity .18s}
+  .sub.manual:hover{color:var(--amber);opacity:1}
   /* 再生 / 一時停止。ロック画面と同じ並びで、現在の状態の側が点灯する (Issue #25)。
      どちらもアイコンだけの同じ正方形にして大きさとデザインを揃える (Issue #30)。
      文言は aria-label とツールチップに持たせてあるので読み上げは変わらない */
@@ -194,6 +197,22 @@
   .bigplay .ico{width:34%;height:34%;fill:currentColor;margin-left:7%}
   .bigplay:hover{background:var(--amber);border-color:var(--amber);color:#101A22}
   .bigplay[hidden]{display:none}
+  /* 再生ボタンの真下に置く解説ページへの入口。初めての人が再生の次に目にする位置。
+     top はボタンの大きさ (.bigplay の width と同じ式) の半分だけ中央から下げる */
+  .readme{
+    position:absolute;left:50%;transform:translateX(-50%);
+    top:calc(50% + clamp(4.2rem,26cqmin,9rem)/2 + clamp(.5rem,3cqmin,1.1rem));
+    z-index:5;white-space:nowrap;
+    font-size:clamp(1rem,5.5cqmin,1.7rem);letter-spacing:.24em;
+    color:var(--ink);text-decoration:none;
+    border-bottom:1px solid var(--line);padding:.1em .3em .1em .54em;
+    /* 背後の数値表示と重なっても読めるよう、再生ボタンと同じ半透明の地を敷く */
+    background:rgba(14,23,32,.55);
+    -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+    transition:color .18s,border-color .18s;
+  }
+  .readme:hover{color:var(--amber);border-bottom-color:var(--amber)}
+  .readme[hidden]{display:none}
 
   /* ---- tooltip ---- */
   #tip{
@@ -269,7 +288,7 @@
     header .tagline{display:none}
     /* gap が詰まるぶん、アイコンとタイトルが接しないよう負マージンを外す */
     .home{margin-right:0}
-    .ver,.lang,.mood{font-size:.6rem;letter-spacing:.12em}
+    .ver,.lang,.manual,.mood{font-size:.6rem;letter-spacing:.12em}
     /* transport が1行に収まるよう詰める */
     .transport{gap:.4rem}
     .tbtn{padding:.5rem .8rem}
@@ -316,6 +335,9 @@
   <!-- 現在の mood。中身は updateMood() が入れる -->
   <div class="sub mood" id="mood"></div>
   <div class="transport">
+    <!-- 解説ページへのリンク。狭幅でも mood を1行目に残せるよう、2行目に回る transport 側に置く。
+         href のアンカーは applyI18n() が表示言語に合わせて付け替える -->
+    <a class="sub manual" id="manual" href="about.html#ja" data-i18n="header.manual">解説</a>
     <!-- 再生 / 一時停止。ロック画面と同じ並びで、いま置かれている状態の側が点灯する (Issue #25) -->
     <button class="tbtn xport" id="play" data-on="0" aria-pressed="false" aria-label="再生" data-i18n-aria="transport.play" data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg></button>
     <button class="tbtn xport" id="pause" data-on="1" aria-pressed="true" aria-label="一時停止" data-i18n-aria="transport.pause" data-tip="音を止める。スペースキーでも切り替え可" data-i18n-tip="tip.pause"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg></button>
@@ -362,6 +384,8 @@
         </div>
         <button class="bigplay" id="bigplay" aria-label="再生" data-i18n-aria="transport.play"
           data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg></button>
+        <!-- 解説ページへの入口。再生ボタンと一緒に出し入れする。href は applyI18n() が言語に合わせて付け替える -->
+        <a class="readme" id="readme" href="about.html#ja" data-i18n="pad.readme">あそびかた</a>
       </div>
     </div>
     <div class="axis"><span data-i18n="pad.dark">暗</span><span style="color:var(--ink)" data-i18n="pad.bright">明るさ</span><span data-i18n="pad.light">明</span></div>
@@ -402,6 +426,7 @@ ja: {
   'transport.pause':'一時停止',
   'transport.lang':'表示言語を切り替える',
   'header.home':'トップへ戻る',
+  'header.manual':'解説',
 
   // ロック画面 / コントロールセンターに出る表示
 
@@ -427,6 +452,7 @@ ja: {
   'pad.bright':'明るさ',
   'pad.root':'ルート音',
   'pad.tension':'緊張',
+  'pad.readme':'あそびかた',
 
   'param.weight':'重さ',
   'param.motion':'ゆらぎ',
@@ -506,6 +532,7 @@ en: {
   // "Back to top" はコンテンツブロッカーの「トップへ戻る」ボタン除去フィルタが
   // aria-label で拾って display:none にするため避ける
   'header.home':'Home',
+  'header.manual':'manual',
 
 
   'tab.mood':'mood',
@@ -530,6 +557,7 @@ en: {
   'pad.bright':'brightness',
   'pad.root':'root',
   'pad.tension':'tension',
+  'pad.readme':'READ ME FIRST',
 
   'param.weight':'weight',
   'param.motion':'motion',
@@ -1706,6 +1734,7 @@ setInterval(reviveAudio,4000);
 const playBtn=document.getElementById('play');
 const pauseBtn=document.getElementById('pause');
 const bigPlayBtn=document.getElementById('bigplay');
+const readmeLink=document.getElementById('readme');
 
 // いま置かれている状態の側を点灯させる (Issue #25)。再生中なら再生ボタンが光る
 function setPowerUI(on){
@@ -1715,6 +1744,7 @@ function setPowerUI(on){
   pauseBtn.setAttribute('aria-pressed',on?'false':'true');
   // 中央の大きな再生ボタンは、再生が始まったらパッドの邪魔なので消す (Issue #36)
   bigPlayBtn.hidden=on;
+  readmeLink.hidden=on;   // 真下の「あそびかた」も同じ扱い
 }
 setPowerUI(false);
 
@@ -1751,6 +1781,7 @@ playBtn.addEventListener('click',()=>{ startAudio(); });
 bigPlayBtn.addEventListener('click',()=>{ startAudio(); });
 // パッド上に載っているため、押しただけで目標が動いてしまわないよう伝播を止める
 bigPlayBtn.addEventListener('pointerdown',e=>e.stopPropagation());
+readmeLink.addEventListener('pointerdown',e=>e.stopPropagation());
 pauseBtn.addEventListener('click',stopAudio);
 
 /* ---- タブ切替 (狭幅時のみ表示) ---- */
@@ -1804,6 +1835,9 @@ function applyI18n(){
   for(const el of document.querySelectorAll('[data-i18n-tip]'))  el.dataset.tip=t(el.dataset.i18nTip);
   for(const el of document.querySelectorAll('[data-i18n-aria]')) el.setAttribute('aria-label',t(el.dataset.i18nAria));
   langBtn.textContent=lang.toUpperCase();
+  // about.html は日本語のあとに英語版が続く1枚なので、表示言語の側へ直接飛ばす
+  document.getElementById('manual').setAttribute('href','about.html#'+lang);
+  document.getElementById('readme').setAttribute('href','about.html#'+lang);
   updateMood();   // mood 名も訳し分ける。MediaMetadata もここで追随する
   hideTip();   // 表示中のツールチップが旧言語のまま残らないように
 }

@@ -19,6 +19,16 @@ test.describe('ブラウザ言語が日本語のとき', () => {
     await expect(first).toContainText('静止');
     await expect(first.locator('small')).toHaveText('stillness');
   });
+
+  test('解説ページへのリンクが「解説」で、日本語版を指す', async ({ page }) => {
+    await page.goto('/index.html');
+    const manual = page.locator('header #manual');
+    await expect(manual).toBeVisible();
+    await expect(manual).toHaveText('解説');
+    await expect(manual).toHaveAttribute('href', 'about.html#ja');
+    await expect(page.locator('#readme')).toHaveText('あそびかた');
+    await expect(page.locator('#readme')).toHaveAttribute('href', 'about.html#ja');
+  });
 });
 
 test.describe('ブラウザ言語が日本語以外のとき', () => {
@@ -39,6 +49,18 @@ test.describe('ブラウザ言語が日本語以外のとき', () => {
     // "Back to top" はコンテンツブロッカーのフィルタに一致し、アイコンごと隠される
     await page.goto('/index.html');
     await expect(page.locator('header a.home')).toHaveAttribute('aria-label', 'Home');
+  });
+
+  test('解説ページへのリンクが manual で、英語版を指す。言語を切り替えると追随する', async ({ page }) => {
+    await page.goto('/index.html');
+    const manual = page.locator('header #manual');
+    await expect(manual).toHaveText('manual');
+    await expect(manual).toHaveAttribute('href', 'about.html#en');
+    await expect(page.locator('#readme')).toHaveText('READ ME FIRST');
+    await expect(page.locator('#readme')).toHaveAttribute('href', 'about.html#en');
+    await page.locator('#lang').click();
+    await expect(manual).toHaveText('解説');
+    await expect(manual).toHaveAttribute('href', 'about.html#ja');
   });
 
   test('画面に日本語が残らない', async ({ page }) => {
