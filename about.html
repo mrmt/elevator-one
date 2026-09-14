@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16222C">
+<title>About — Elevator One</title>
+<style>
+  /* 配色・書体は index.html と同じトークンを使う */
+  :root{
+    --sea-top:#1D2A33;
+    --sea-mid:#16222C;
+    --sea-bot:#0E1720;
+    --panel:rgba(255,255,255,.055);
+    --panel-hi:rgba(255,255,255,.11);
+    --line:rgba(226,236,242,.19);
+    --ink:#E7E2CE;
+    --dim:rgba(214,226,232,.62);
+    --amber:#D8A340;
+    --disp:'Futura','Avenir Next Condensed','Helvetica Neue',sans-serif;
+    --text:'Avenir Next','Helvetica Neue','Hiragino Sans','Hiragino Kaku Gothic ProN',system-ui,sans-serif;
+    --data:'Menlo','Monaco',monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth;scroll-padding-top:4.2rem}
+  body{
+    background:var(--sea-mid);
+    background-image:linear-gradient(180deg,var(--sea-top) 0%,var(--sea-mid) 40%,var(--sea-bot) 100%);
+    background-attachment:fixed;
+    color:var(--ink);
+    font-family:var(--text);
+    font-size:15px;line-height:1.85;
+    -webkit-font-smoothing:antialiased;
+    min-height:100dvh;
+    padding:0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  a{color:var(--amber);text-underline-offset:.2em}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+  /* ---- header (アプリと同じ構成) ---- */
+  header{
+    position:sticky;top:0;z-index:10;
+    display:flex;align-items:baseline;gap:1rem;flex-wrap:wrap;
+    padding:calc(.8rem + env(safe-area-inset-top)) 1.2rem .7rem;
+    background:rgba(14,23,32,.86);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);
+    font-family:var(--disp);
+  }
+  .home{display:flex;align-self:center;margin-right:-.4rem}
+  .home svg{width:1.15rem;height:1.15rem;display:block;fill:var(--ink)}
+  .mark{font-size:.95rem;letter-spacing:.42em;text-transform:uppercase;color:var(--ink);text-decoration:none}
+  .sub{font-size:.68rem;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
+  .sub a{color:var(--dim);text-decoration:none;transition:color .18s}
+  .sub a:hover{color:var(--amber)}
+  .sub a[aria-current="true"]{color:var(--amber)}
+  .transport{margin-left:auto;display:flex;gap:.55rem;align-items:center}
+  .tbtn{
+    display:inline-flex;align-items:center;gap:.55rem;
+    border:1px solid var(--line);
+    padding:.45rem 1rem;
+    font-family:var(--disp);font-size:.68rem;letter-spacing:.28em;text-transform:uppercase;
+    white-space:nowrap;color:var(--ink);text-decoration:none;
+    background:var(--panel);
+    transition:background .18s,border-color .18s,color .18s;
+  }
+  .tbtn:hover{background:var(--amber);color:#101A22;border-color:var(--amber)}
+  .tbtn .ico{width:.62rem;height:.62rem;fill:currentColor}
+
+  /* ---- 本文 ---- */
+  .page{max-width:54rem;margin:0 auto;padding:2.6rem 1.2rem 5rem}
+  .lang-block + .lang-block{margin-top:5rem;padding-top:4rem;border-top:1px solid var(--line)}
+  .eyebrow{
+    font-family:var(--disp);font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;
+    color:var(--dim);margin-bottom:.8rem;
+  }
+  h1{
+    font-family:var(--disp);font-weight:400;
+    font-size:clamp(1.6rem,4.6vw,2.4rem);letter-spacing:.2em;text-transform:uppercase;
+    line-height:1.25;margin-bottom:1rem;
+  }
+  .lead{color:var(--dim);max-width:40rem}
+  /* 英語版への案内。本文より小さく控えめに置く */
+  .en-note{font-size:.72rem;letter-spacing:.04em;margin-bottom:.3rem}
+  .en-note a{color:var(--dim);text-decoration:underline;text-decoration-color:var(--line)}
+  .en-note a:hover{color:var(--amber)}
+  h2{
+    font-family:var(--disp);font-weight:400;
+    font-size:.8rem;letter-spacing:.32em;text-transform:uppercase;color:var(--dim);
+    display:flex;align-items:baseline;gap:.8rem;
+    margin:3.4rem 0 1.1rem;padding-bottom:.55rem;border-bottom:1px solid var(--line);
+  }
+  h2 .no{font-family:var(--data);font-size:.66rem;letter-spacing:.04em;color:var(--amber)}
+  h3{font-size:.95rem;font-weight:600;letter-spacing:.08em;margin:2rem 0 .5rem}
+  p + p{margin-top:.8rem}
+  ul.dots{list-style:none;margin:.6rem 0}
+  ul.dots li{position:relative;padding-left:1.1rem;margin:.35rem 0}
+  ul.dots li::before{content:"";position:absolute;left:0;top:.72em;width:5px;height:5px;background:var(--amber)}
+  b.k{font-weight:600;color:var(--ink)}
+  .dim{color:var(--dim)}
+  code,kbd{font-family:var(--data);font-size:.82em;color:var(--amber)}
+  kbd{border:1px solid var(--line);padding:.05em .4em;background:var(--panel)}
+
+  /* ---- クイックスタート ---- */
+  .quick{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,15rem);gap:1px;
+    background:var(--line);border:1px solid var(--line);margin-top:2rem;
+  }
+  .quick > *{background:rgba(0,0,0,.24)}
+  .quick ol{list-style:none;counter-reset:q;padding:1.3rem 1.4rem}
+  .quick li{counter-increment:q;position:relative;padding-left:2.6rem;margin:.2rem 0 1.05rem}
+  .quick li:last-child{margin-bottom:0}
+  .quick li::before{
+    content:counter(q);position:absolute;left:0;top:.1rem;
+    width:1.75rem;height:1.75rem;display:flex;align-items:center;justify-content:center;
+    font-family:var(--data);font-size:.75rem;color:#101A22;background:var(--amber);
+  }
+  .quick li strong{display:block;font-weight:600;letter-spacing:.04em}
+  .quick li span{color:var(--dim);font-size:.9em}
+  /* 画面の見本。アプリのパッドと再生ボタンを縮小して描く */
+  .mock{position:relative;display:flex;flex-direction:column;padding:1rem;gap:.5rem;min-height:12rem}
+  .mock .cap{font-family:var(--disp);font-size:.56rem;letter-spacing:.26em;text-transform:uppercase;color:var(--dim)}
+  .mock .pad{
+    position:relative;flex:1;min-height:9rem;border:1px solid var(--line);
+    background:radial-gradient(120% 90% at 40% 60%,#2A4656 0%,#1A2C38 55%,#101B24 100%);
+    overflow:hidden;
+  }
+  .mock .pad::before,.mock .pad::after{content:"";position:absolute;background:rgba(233,242,246,.5)}
+  .mock .pad::before{left:28%;top:62%;width:14px;height:1px;margin-left:-7px}
+  .mock .pad::after{left:28%;top:62%;width:1px;height:14px;margin-top:-7px}
+  .mock .big{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:4rem;aspect-ratio:1;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--amber);background:rgba(14,23,32,.55);color:var(--amber);
+    box-shadow:0 0 0 0 rgba(216,163,64,.5);animation:ping 2.4s ease-out infinite;
+  }
+  .mock .big svg{width:34%;height:34%;fill:currentColor;margin-left:7%}
+  @keyframes ping{0%{box-shadow:0 0 0 0 rgba(216,163,64,.45)}80%,100%{box-shadow:0 0 0 1.1rem rgba(216,163,64,0)}}
+
+  .callout{
+    margin-top:1rem;padding:.8rem 1rem;border-left:2px solid var(--amber);background:var(--panel);
+    font-size:.92em;
+  }
+
+  /* ---- 画面構成の図 ---- */
+  .layout{
+    display:grid;grid-template-columns:1fr 2.2fr 1.3fr;gap:1px;
+    background:var(--line);border:1px solid var(--line);margin:1rem 0 .4rem;
+  }
+  .layout > div{background:rgba(0,0,0,.24);padding:.8rem .9rem;min-height:7rem}
+  .layout .top{grid-column:1/-1;min-height:0;padding:.5rem .9rem;display:flex;justify-content:space-between;gap:1rem}
+  .layout .t{font-family:var(--disp);font-size:.58rem;letter-spacing:.26em;text-transform:uppercase;color:var(--amber);display:block;margin-bottom:.25rem}
+  .layout small{display:block;color:var(--dim);font-size:.78rem;line-height:1.6}
+
+  /* ---- 表 ---- */
+  .tbl{overflow-x:auto;margin:.6rem 0 .4rem;border:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;font-size:.9rem;line-height:1.65}
+  th,td{text-align:left;vertical-align:top;padding:.55rem .8rem;border-bottom:1px solid var(--line)}
+  tr:last-child td{border-bottom:none}
+  th{
+    font-family:var(--disp);font-weight:400;font-size:.6rem;letter-spacing:.26em;text-transform:uppercase;
+    color:var(--dim);background:rgba(0,0,0,.24);
+  }
+  td:first-child{white-space:nowrap;font-weight:600}
+  td:first-child small{display:block;font-weight:400;font-family:var(--disp);font-size:.62rem;letter-spacing:.14em;color:var(--dim)}
+  td.rng{font-family:var(--data);font-size:.74rem;color:var(--amber);white-space:nowrap}
+  td.grp{font-family:var(--disp);font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);white-space:nowrap}
+
+  /* ---- 信号の流れ ---- */
+  .flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);margin:1rem 0}
+  .flow > div{background:rgba(0,0,0,.24);padding:.9rem 1rem}
+  .flow .t{font-family:var(--disp);font-size:.62rem;letter-spacing:.26em;text-transform:uppercase;color:var(--amber);display:block;margin-bottom:.35rem}
+  .flow p{font-size:.86rem;line-height:1.7;color:var(--dim)}
+  .flow .sum{grid-column:1/-1;text-align:center;font-size:.78rem;letter-spacing:.04em;color:var(--dim);padding:.55rem}
+
+  /* ---- レシピ ---- */
+  .recipes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line)}
+  .recipes > div{background:rgba(0,0,0,.24);padding:.9rem 1rem}
+  .recipes h4{font-size:.9rem;font-weight:600;letter-spacing:.06em;margin-bottom:.3rem}
+  .recipes p{font-size:.86rem;line-height:1.75;color:var(--dim)}
+
+  footer{
+    padding:.8rem 1.2rem;font-family:var(--data);font-size:.64rem;color:var(--dim);
+    background:rgba(0,0,0,.21);border-top:1px solid var(--line);
+    display:flex;gap:1.4rem;flex-wrap:wrap;justify-content:space-between;
+  }
+
+  @media (max-width:720px){
+    body{font-size:14.5px}
+    header{gap:.6rem;padding:calc(.6rem + env(safe-area-inset-top)) 1rem .55rem}
+    .home{margin-right:0}
+    header .tagline{display:none}
+    /* Open ボタンが2行目に落ちないよう詰める */
+    header{flex-wrap:nowrap}
+    .mark{letter-spacing:.24em;white-space:nowrap}
+    .sub{white-space:nowrap}
+    .tbtn{padding:.4rem .7rem;letter-spacing:.2em}
+    .page{padding:1.8rem 1rem 4rem}
+    .quick{grid-template-columns:1fr}
+    .mock{min-height:11rem}
+    .layout{grid-template-columns:1fr}
+    .layout > div{min-height:0}
+    .flow{grid-template-columns:1fr}
+    .recipes{grid-template-columns:1fr}
+    /* 英語の長い名称だけ折り返す。日本語は1文字ずつ折れて読みにくいので折り返さない */
+    #en td:first-child{white-space:normal}
+  }
+  @media (max-width:380px){
+    .mark{font-size:.85rem;letter-spacing:.16em}
+  }
+  /* 320px 級ではヘッダーに収まらないので言語リンクを外す (フッターにも同じリンクがある) */
+  @media (max-width:340px){
+    header .sub{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <!-- アイコンとタイトルはアプリ本体へのリンク -->
+  <a class="home" href="./" aria-label="Elevator One"><svg viewBox="0 0 512 512" aria-hidden="true"><g><path fill-rule="evenodd" d="M48 0H464A48 48 0 0 1 512 48V464A48 48 0 0 1 464 512H48A48 48 0 0 1 0 464V48A48 48 0 0 1 48 0ZM72 34H440A38 38 0 0 1 478 72V440A38 38 0 0 1 440 478H72A38 38 0 0 1 34 440V72A38 38 0 0 1 72 34Z"/><path d="M149 122L241 210L241 270L170 208V381H128V208L59 270V210Z"/><path d="M342 135H385V310L457 247V306L364 394L272 307V247L342 310Z"/></g></svg></a>
+  <a class="mark" href="./">Elevator One</a>
+  <div class="sub tagline">about / manual</div>
+  <div class="sub"><a href="#ja" hreflang="ja">JA</a> &nbsp;/&nbsp; <a href="#en" hreflang="en">EN</a></div>
+  <div class="transport">
+    <a class="tbtn" href="./"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg>Open</a>
+  </div>
+</header>
+
+<div class="page">
+
+<!-- ============================================================
+     日本語
+     ============================================================ -->
+<article class="lang-block" id="ja" lang="ja">
+
+  <div class="eyebrow">generative ambient / minimal / drone</div>
+  <h1>Elevator One</h1>
+  <p class="en-note"><a href="#en" hreflang="en">English information follows</a></p>
+  <p class="lead">放っておくと鳴り続け、ゆっくり変わり続けるアンビエント / ドローンの自動生成楽器。ブラウザだけで動き、インストールも登録も要らない。</p>
+
+  <section class="quick" aria-labelledby="ja-quick">
+    <ol>
+      <li id="ja-quick"><strong>開く</strong><span><a href="https://elevator-noise.com/one/">elevator-noise.com/one/</a> を Safari か Chrome で開く</span></li>
+      <li><strong>画面中央の大きな ▶ を押す</strong><span>ブラウザの制限で、押すまで音は出ない。右上の小さな ▶ や <kbd>Space</kbd> キーでもよい</span></li>
+      <li><strong>あとは放っておく</strong><span>数十秒ごとに雰囲気が自動で切り替わる。止めるときは右上の ⏸</span></li>
+    </ol>
+    <div class="mock" aria-hidden="true">
+      <span class="cap">XY pad</span>
+      <div class="pad"><div class="big"><svg viewBox="0 0 12 12"><path d="M2.5 1 10 6l-7.5 5z"/></svg></div></div>
+    </div>
+  </section>
+  <p class="callout">音が出ない → 端末の音量と消音設定を確認。音はゆっくり立ち上がるので、押してから数秒待つ。</p>
+
+  <h2><span class="no">01</span>もう少し触ってみる</h2>
+  <ul class="dots">
+    <li><b class="k">雰囲気を選ぶ</b> — 左の列 (スマートフォンでは「雰囲気」タブ) から名前を押す。静止・深海なら静かなドローン、巡航・電磁ならシーケンスが走る</li>
+    <li><b class="k">XYパッドをなぞる</b> — 右へ行くほど明るく、下へ行くほど音数が増える。音はすぐには変わらず、数秒〜数十秒かけて追いつく</li>
+    <li><b class="k">スライダーを動かす</b> — 右の列 (「音作り」タブ) で音色を細かく決める。何か触ると自動切り替え (シャッフル) は止まるので、戻したいときは「シャッフル」を押す</li>
+  </ul>
+
+  <h2><span class="no">02</span>画面構成</h2>
+  <div class="layout">
+    <div class="top"><span><span class="t">header</span><small>ホーム · バージョン · JA/EN · 現在の雰囲気</small></span><span style="text-align:right"><span class="t">▶ ⏸</span><small>再生 / 一時停止</small></span></div>
+    <div><span class="t">雰囲気</span><small>シャッフル<br>切り替え間隔<br>プリセット15種</small></div>
+    <div><span class="t">XYパッド</span><small>横: 明るさ / 縦: 密度<br>ルート音・明るさ・密度・緊張の現在値<br>下に16ステップ列とテンポ</small></div>
+    <div><span class="t">音作り</span><small>パラメータ · 自動漂流<br>シーケンサ · 再生成<br>展開</small></div>
+  </div>
+  <p class="dim" style="font-size:.88em">幅900px以下ではヘッダー下にタブ (雰囲気 / XYパッド / 音作り) が出て、1画面に1セクションずつ表示する。</p>
+  <p>ヘッダーの雰囲気名は、手で値を変えると末尾に <code>(edit)</code> が付く。同じ名前はブラウザのタブと、ロック画面 / CarPlay の再生情報にも出る。<code>JA</code> / <code>EN</code> で表示言語を切り替えられ、選択は次回も保たれる。</p>
+
+  <h2><span class="no">03</span>音の仕組み</h2>
+  <p>音源は2つの「展開」と1つのシーケンサ。展開同士は <b class="k">和声率</b> でクロスフェードし、シーケンサはその上に独立して重なる。</p>
+  <div class="flow">
+    <div><span class="t">ドローン展開</span><p>5声の持続音。<b class="k">緊張</b> に応じ、音程ベクトルを協和 (完全5度・オクターブ) から不協和 (短2度・三全音) へ連続補間する。和音は平均律に吸着せず、微分音的に移ろう。ピンクノイズ層とまばらなFMベルが乗る。</p></div>
+    <div><span class="t">和声展開</span><p>マイナー調の4和音進行。4小節または2小節ごとにポルタメントなしで切り替わる。<b class="k">刻み</b> で持続コードからゲートで刻むコードまで変わる。</p></div>
+    <div><span class="t">シーケンサ</span><p>16ステップ。ノコギリ波＋矩形波＋サブオシレータをレゾナンスの効いたローパスに通し、1音ごとにエンベロープでカットオフを叩く。左右で時間の異なる2系統のディレイ付き。</p></div>
+    <div class="sum">→ 質感 (歪み · リングモジュレーション · 粉塵ノイズ) → リバーブ / ディレイ → コンプ → 出力</div>
+  </div>
+  <p>すべてのパラメータは <b class="k">目標値</b> と <b class="k">現在値</b> を別々に持ち、現在値は <b class="k">推移時間</b> をかけて目標へ指数的に近づく。操作は「行き先を決める」ことであり、音はその場で切り替わらず、ゆっくり移っていく。雰囲気の切り替えも同じくクロスフェードになる。</p>
+
+  <h2><span class="no">04</span>XYパッド</h2>
+  <p>ドラッグ / タップで目標を動かす。<b class="k">白い十字が目標</b>、<b class="k">琥珀のランプが現在地</b>。ランプが十字を追いかける様子で、推移の進み具合が見える。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>軸</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td>横 — 明るさ<small>brightness</small></td><td>左が暗く、右が明るい</td></tr>
+      <tr><td>縦 — 密度<small>density</small></td><td>上が疎、下が密</td></tr>
+    </tbody>
+  </table></div>
+  <p>パッド上には <b class="k">ルート音</b> (Hz)・明るさ・密度・緊張の現在値が薄く出る。背景色も現在地から生成され、明るいほど明度が上がり、密なほど濃い青、疎なほど淡い青緑へ寄る。漂う粒子は密なら細かく多数、疎なら大きく少数。パッド下の16ステップ列はシーケンサの再生位置を示す。</p>
+
+  <h2><span class="no">05</span>雰囲気 (プリセット)</h2>
+  <p>全パラメータをまとめて設定する15種。<b class="k">シャッフル</b> (既定ON) は <b class="k">切り替え間隔</b> (10〜120秒、既定30秒) ごとにランダムに選び直す。プリセットを直接選ぶ、スライダーを動かす、XYパッドを触る → シャッフルは自動でOFF。間隔スライダーだけはシャッフルをONのまま変えられる。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>名前</th><th>系統</th><th>性格</th></tr></thead>
+    <tbody>
+      <tr><td>静止<small>stillness</small></td><td class="grp">drone</td><td>最低限の低いドローンだけ。ほぼ動かない基準点</td></tr>
+      <tr><td>霧<small>mist</small></td><td class="grp">drone</td><td>柔らかい中域とノイズ層。輪郭のぼやけた持続音</td></tr>
+      <tr><td>灰<small>ash</small></td><td class="grp">drone + seq</td><td>中域中心で粒子が多い。冷たく無彩色</td></tr>
+      <tr><td>錆<small>rust</small></td><td class="grp">drone + seq</td><td>不協和と金属的共鳴。軋むように不安定</td></tr>
+      <tr><td>遠雷<small>far storm</small></td><td class="grp">drone</td><td>深く重い低音と広い残響。遠くでまばらに鳴る</td></tr>
+      <tr><td>白光<small>glow</small></td><td class="grp">drone + seq</td><td>明るく協和的。高域のきらめきが多い</td></tr>
+      <tr><td>深海<small>abyss</small></td><td class="grp">drone</td><td>最も低く遅い。ほとんど動かない巨大な空間</td></tr>
+      <tr><td>圧<small>pressure</small></td><td class="grp">drone + seq</td><td>密度も緊張も高く、押し寄せる塊</td></tr>
+      <tr><td>巡航<small>cruise</small></td><td class="grp">seq</td><td>一定速度で走るシーケンス。Rubycon / Ricochet 的なベルリン・スクール</td></tr>
+      <tr><td>夜行<small>night ride</small></td><td class="grp">seq</td><td>低速で共振の強いシーケンスと重い低音</td></tr>
+      <tr><td>電磁<small>flux</small></td><td class="grp">seq</td><td>速く変異の多いシーケンス。落ち着かない電流的な動き</td></tr>
+      <tr><td>研磨<small>abrasion</small></td><td class="grp">drone + seq</td><td>ざらつきを極端まで。歪みと粉塵で表面が削れる</td></tr>
+      <tr><td>大気<small>stratum</small></td><td class="grp">harmony</td><td>和声展開の持続コード。4小節ごとに和音が変わる</td></tr>
+      <tr><td>均衡<small>equipoise</small></td><td class="grp">harmony</td><td>和声展開の刻みモード。2小節ごとの和音と細かい刻み</td></tr>
+      <tr><td>失調<small>disequilibrium</small></td><td class="grp">drone + harmony</td><td>ドローンと和声を半々で重ね、どちらにも定まらない</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2><span class="no">06</span>音作り</h2>
+  <p>スライダーの値は <code>0.00〜1.00</code> の正規化値 (音量・推移時間を除く)。ラベルにマウスを載せると説明が出る。</p>
+
+  <h3>パラメータ</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>名称</th><th>範囲</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td>音量<small>volume</small></td><td class="rng">0–100<br>既定 80</td><td>出力音量。80 までが通常のレベル、80 を超えるとコンプを深めて音圧を稼ぐ。推移時間を待たず即座に反映</td></tr>
+      <tr><td>重さ<small>weight</small></td><td class="rng">0–1</td><td>全体の音域を下げ、低音の量を増やす</td></tr>
+      <tr><td>ゆらぎ<small>motion</small></td><td class="rng">0–1</td><td>LFOの深さと速さ。音量・音色・デチューンが揺れる。背景グラデーションの呼吸にも連動</td></tr>
+      <tr><td>緊張<small>tension</small></td><td class="rng">0–1</td><td>和音の音程を協和から不協和へ連続的に変える</td></tr>
+      <tr><td>空間<small>space</small></td><td class="rng">0–1</td><td>リバーブとディレイの量。奥行きと余韻の長さ</td></tr>
+      <tr><td>ざらつき<small>grit</small></td><td class="rng">0–1</td><td>歪み・リングモジュレーション・粉塵ノイズ・微細なグレインを同時に立ち上げる。上げるほど金属を削るような質感</td></tr>
+      <tr><td>推移時間<small>glide</small></td><td class="rng">5–300 s<br>既定 15 s</td><td>現在値が目標値に追いつくまでのおおよその時間</td></tr>
+      <tr><td>自動漂流<small>auto drift</small></td><td class="rng">on / off</td><td>既定ON。目標値とルート音がゆっくり自然に揺れ続ける。OFFにすると操作した位置に留まる</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>シーケンサ</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>名称</th><th>範囲</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td>音量<small>level</small></td><td class="rng">0–1</td><td>シーケンサ全体の音量。0 でドローンだけになる</td></tr>
+      <tr><td>速度<small>tempo</small></td><td class="rng">55–150 BPM</td><td>テンポ。推移時間をかけて加減速する</td></tr>
+      <tr><td>変異<small>mutate</small></td><td class="rng">0–1</td><td>1小節ごとに音程・ゲート・オクターブが書き換わる確率。0 で同じパターンを繰り返す</td></tr>
+      <tr><td>カットオフ<small>cutoff</small></td><td class="rng">110–3200 Hz</td><td>ローパスの基準周波数。1音ごとにここを中心に開閉する</td></tr>
+      <tr><td>レゾナンス<small>resonance</small></td><td class="rng">0–1</td><td>フィルターのQ。上げるほど癖の強い鳴り</td></tr>
+      <tr><td>シーケンス再生成<small>reseed sequence</small></td><td class="rng">button</td><td>16ステップの音程とゲートをすべて引き直す</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>展開</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>名称</th><th>範囲</th><th>内容</th></tr></thead>
+    <tbody>
+      <tr><td>和声率<small>harmony</small></td><td class="rng">0–1</td><td>0 でドローン展開、1 で和声展開。中間は両者が重なる</td></tr>
+      <tr><td>刻み<small>chop</small></td><td class="rng">0–1</td><td>0.08 未満でコードは持続音。上げると刻みが細かくなり、0.5 以上でコードの切り替わりが4小節から2小節ごとになる。和声率 0 のときは効かない</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2><span class="no">07</span>レシピ</h2>
+  <div class="recipes">
+    <div><h4>純粋なドローン</h4><p>「深海」を選び、シーケンサの音量を 0、和声率を 0。推移時間を 120 s 以上にし、自動漂流はON。作業用・睡眠用に向く。</p></div>
+    <div><h4>ベルリン・スクール</h4><p>「巡航」から始め、変異を 0.1 前後まで下げて反復を固定。気に入らなければシーケンス再生成。カットオフを低めにしてレゾナンスを上げ、空間を広く。</p></div>
+    <div><h4>コードで聴かせる</h4><p>和声率 1、刻み 0。4小節ごとに持続コードが移る。刻みを 0.5 以上に上げると2小節ごとの刻みになる。</p></div>
+    <div><h4>インダストリアル寄り</h4><p>「研磨」か「錆」から、緊張とざらつきを上げ、明るさを中域に。重さを上げると低域の塊が増す。</p></div>
+    <div><h4>ゆっくり場面転換</h4><p>推移時間を 300 s、シャッフルの間隔を 120 s。切り替えが次の切り替えまでに終わらず、常に何かの途中にある状態になる。</p></div>
+    <div><h4>シャッフルで流しっぱなし</h4><p>何も触らなければ既定のまま。何か触ってシャッフルが切れたら、左列の「シャッフル」を押し直す。</p></div>
+  </div>
+
+  <h2><span class="no">08</span>知っておくこと</h2>
+  <ul class="dots">
+    <li><b class="k">キーボード</b> — <kbd>Space</kbd> で再生 / 一時停止 (入力欄にフォーカスがないとき)</li>
+    <li><b class="k">バックグラウンド再生</b> — iPhone / iPad で画面をロックしたり別アプリへ移っても鳴り続け、ロック画面に再生 / 一時停止が出る</li>
+    <li><b class="k">iPadOS の制限</b> — 画面をロックしたまま50分ほど再生するとタブごと終了することがある。戻ると読み込み直された状態なので、再生を押し直す。macOS の Safari では長時間でも問題ない</li>
+    <li><b class="k">通信しない</b> — 合成はすべてブラウザ内の Web Audio API。外部への通信はない。<code>index.html</code> を保存すればオフラインでも動く</li>
+    <li><b class="k">ソースコード</b> — <a href="https://github.com/mrmt/elevator-one">github.com/mrmt/elevator-one</a> (MIT ライセンス)</li>
+  </ul>
+
+</article>
+
+<!-- ============================================================
+     English
+     ============================================================ -->
+<article class="lang-block" id="en" lang="en">
+
+  <div class="eyebrow">generative ambient / minimal / drone</div>
+  <h1>Elevator One</h1>
+  <p class="lead">A generative ambient / drone instrument that keeps playing and keeps slowly changing on its own. It runs entirely in the browser — nothing to install, no account.</p>
+
+  <section class="quick" aria-labelledby="en-quick">
+    <ol>
+      <li id="en-quick"><strong>Open it</strong><span>Go to <a href="https://elevator-noise.com/one/">elevator-noise.com/one/</a> in Safari or Chrome</span></li>
+      <li><strong>Press the big ▶ in the middle</strong><span>Browsers block audio until you interact, so nothing plays before this. The small ▶ at the top right or the <kbd>Space</kbd> key work too</span></li>
+      <li><strong>Leave it alone</strong><span>The mood changes by itself every few tens of seconds. Press ⏸ at the top right to stop</span></li>
+    </ol>
+    <div class="mock" aria-hidden="true">
+      <span class="cap">XY pad</span>
+      <div class="pad"><div class="big"><svg viewBox="0 0 12 12"><path d="M2.5 1 10 6l-7.5 5z"/></svg></div></div>
+    </div>
+  </section>
+  <p class="callout">No sound? Check the device volume and mute. The sound fades in slowly, so give it a few seconds after pressing play.</p>
+
+  <h2><span class="no">01</span>Going a little further</h2>
+  <ul class="dots">
+    <li><b class="k">Pick a mood</b> — tap a name in the left column (the “mood” tab on phones). stillness or abyss give a quiet drone; cruise or flux start a running sequence</li>
+    <li><b class="k">Drag on the XY pad</b> — further right is brighter, further down is busier. The sound doesn’t jump; it catches up over seconds to tens of seconds</li>
+    <li><b class="k">Move the sliders</b> — the right column (the “sound” tab) shapes the timbre in detail. Touching anything turns shuffle off; press “shuffle” to bring it back</li>
+  </ul>
+
+  <h2><span class="no">02</span>Layout</h2>
+  <div class="layout">
+    <div class="top"><span><span class="t">header</span><small>home · version · JA/EN · current mood</small></span><span style="text-align:right"><span class="t">▶ ⏸</span><small>play / pause</small></span></div>
+    <div><span class="t">mood</span><small>shuffle<br>interval<br>15 presets</small></div>
+    <div><span class="t">XY pad</span><small>x: brightness / y: density<br>live root, brightness, density, tension<br>16-step strip and tempo below</small></div>
+    <div><span class="t">sound</span><small>parameters · auto drift<br>sequencer · reseed<br>progression</small></div>
+  </div>
+  <p class="dim" style="font-size:.88em">At 900px wide or less, tabs (mood / XY pad / sound) appear under the header and show one section at a time.</p>
+  <p>The mood name in the header gets <code>(edit)</code> appended once you change a value by hand. The same name appears in the browser tab and in the lock screen / CarPlay now-playing info. <code>JA</code> / <code>EN</code> switches the display language, and the choice is remembered.</p>
+
+  <h2><span class="no">03</span>How the sound works</h2>
+  <p>There are two “progressions” and one sequencer. The progressions crossfade with <b class="k">harmony</b>; the sequencer runs independently on top.</p>
+  <div class="flow">
+    <div><span class="t">drone progression</span><p>Five sustained voices. <b class="k">tension</b> continuously interpolates the interval vector from consonant (fifths, octaves) to dissonant (minor seconds, tritones), so the chord never snaps to equal temperament and drifts microtonally. A pink-noise layer and sparse FM bells sit on top.</p></div>
+    <div><span class="t">harmony progression</span><p>A minor-key progression of four-note chords, changing every 4 or 2 bars with no portamento. <b class="k">chop</b> moves it from sustained pads to gated, chopped chords.</p></div>
+    <div><span class="t">sequencer</span><p>16 steps. Saw + square + sub oscillator into a resonant low-pass, with the cutoff struck by an envelope on every note. Two delay lines with different times left and right.</p></div>
+    <div class="sum">→ texture (distortion · ring mod · dust noise) → reverb / delay → compressor → out</div>
+  </div>
+  <p>Every parameter has a <b class="k">target</b> and a <b class="k">current</b> value, and the current value moves exponentially toward the target over the <b class="k">glide</b> time. Operating it means choosing where to go; the sound doesn’t switch on the spot but migrates there. Mood changes crossfade the same way.</p>
+
+  <h2><span class="no">04</span>XY pad</h2>
+  <p>Drag or tap to move the target. <b class="k">The white cross is the target</b>, <b class="k">the amber lamp is where the sound is now</b>. Watching the lamp chase the cross shows how far the glide has got.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Axis</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>x — brightness</td><td>Dark on the left, bright on the right</td></tr>
+      <tr><td>y — density</td><td>Sparse at the top, dense at the bottom</td></tr>
+    </tbody>
+  </table></div>
+  <p>The pad shows faint live readouts of the <b class="k">root</b> (Hz), brightness, density and tension. The background color is generated from the current position: brighter raises lightness, dense leans toward deep blue, sparse toward pale teal. Drifting particles are small and many when dense, large and few when sparse. The 16-step strip under the pad shows the sequencer’s playhead.</p>
+
+  <h2><span class="no">05</span>Moods (presets)</h2>
+  <p>Fifteen presets that set every parameter at once. <b class="k">shuffle</b> (on by default) picks a new one at random every <b class="k">interval</b> (10–120 s, default 30 s). Selecting a preset, moving a slider or touching the XY pad turns shuffle off automatically; only the interval slider can be changed without turning it off.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Name</th><th>Type</th><th>Character</th></tr></thead>
+    <tbody>
+      <tr><td>stillness</td><td class="grp">drone</td><td>Nothing but a minimal low drone. The near-motionless reference point</td></tr>
+      <tr><td>mist</td><td class="grp">drone</td><td>Soft mids over a noise layer. Sustained tones with blurred edges</td></tr>
+      <tr><td>ash</td><td class="grp">drone + seq</td><td>Centered on the mids, full of grain. Cold and colorless</td></tr>
+      <tr><td>rust</td><td class="grp">drone + seq</td><td>Dissonance and metallic resonance. Unstable, as if creaking</td></tr>
+      <tr><td>far storm</td><td class="grp">drone</td><td>Deep, heavy bass and wide reverb. Sparse events far away</td></tr>
+      <tr><td>glow</td><td class="grp">drone + seq</td><td>Bright and consonant, with plenty of shimmer up top</td></tr>
+      <tr><td>abyss</td><td class="grp">drone</td><td>The lowest and slowest. A vast space that barely moves</td></tr>
+      <tr><td>pressure</td><td class="grp">drone + seq</td><td>High density and high tension. A mass bearing down</td></tr>
+      <tr><td>cruise</td><td class="grp">seq</td><td>A sequence at constant speed. Berlin School in the vein of Rubycon / Ricochet</td></tr>
+      <tr><td>night ride</td><td class="grp">seq</td><td>A slow, strongly resonant sequence over heavy bass</td></tr>
+      <tr><td>flux</td><td class="grp">seq</td><td>A fast, constantly mutating sequence. Restless, current-like movement</td></tr>
+      <tr><td>abrasion</td><td class="grp">drone + seq</td><td>Grit pushed to the extreme. Distortion and dust grinding the surface away</td></tr>
+      <tr><td>stratum</td><td class="grp">harmony</td><td>Sustained chords from the harmony progression, changing every 4 bars</td></tr>
+      <tr><td>equipoise</td><td class="grp">harmony</td><td>Chopped mode of the harmony progression. Chords every 2 bars, chopped fine</td></tr>
+      <tr><td>disequilibrium</td><td class="grp">drone + harmony</td><td>Drone and harmony layered half and half, settling into neither</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2><span class="no">06</span>Sound</h2>
+  <p>Slider values are normalized to <code>0.00–1.00</code> (except volume and glide). Hover over a label for a description.</p>
+
+  <h3>Parameters</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Name</th><th>Range</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>volume</td><td class="rng">0–100<br>default 80</td><td>Output volume. Up to 80 is the normal level; above 80 the compressor digs in to push loudness. Applied immediately, not over the glide time</td></tr>
+      <tr><td>weight</td><td class="rng">0–1</td><td>Lowers the overall register and adds low end</td></tr>
+      <tr><td>motion</td><td class="rng">0–1</td><td>LFO depth and rate. Sways level, timbre and detune; also drives the breathing of the background gradient</td></tr>
+      <tr><td>tension</td><td class="rng">0–1</td><td>Bends the chord intervals continuously from consonant to dissonant</td></tr>
+      <tr><td>space</td><td class="rng">0–1</td><td>Amount of reverb and delay. Depth and tail length</td></tr>
+      <tr><td>grit</td><td class="rng">0–1</td><td>Brings up distortion, ring modulation, dust noise and fine grains together. The higher, the more it sounds like metal being ground</td></tr>
+      <tr><td>glide</td><td class="rng">5–300 s<br>default 15 s</td><td>Roughly how long the current value takes to reach the target</td></tr>
+      <tr><td>auto drift</td><td class="rng">on / off</td><td>On by default. Keeps the targets and the root note drifting slowly on their own. Off leaves things where you put them</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Sequencer</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Name</th><th>Range</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>level</td><td class="rng">0–1</td><td>Level of the whole sequencer. At 0 only the drone is left</td></tr>
+      <tr><td>tempo</td><td class="rng">55–150 BPM</td><td>Tempo. Speeds up and slows down over the glide time</td></tr>
+      <tr><td>mutate</td><td class="rng">0–1</td><td>Chance that pitch, gate and octave are rewritten every bar. At 0 the pattern repeats unchanged</td></tr>
+      <tr><td>cutoff</td><td class="rng">110–3200 Hz</td><td>Base frequency of the low-pass. Every note sweeps around this point</td></tr>
+      <tr><td>resonance</td><td class="rng">0–1</td><td>Filter Q. The higher, the more pronounced the ring</td></tr>
+      <tr><td>reseed sequence</td><td class="rng">button</td><td>Redraws the pitch and gate of all 16 steps</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Progression</h3>
+  <div class="tbl"><table>
+    <thead><tr><th>Name</th><th>Range</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>harmony</td><td class="rng">0–1</td><td>0 is the drone progression, 1 the harmony progression. In between they overlap</td></tr>
+      <tr><td>chop</td><td class="rng">0–1</td><td>Below 0.08 the chords sustain. Raising it chops them finer, and at 0.5 and above the chords change every 2 bars instead of every 4. Has no effect when harmony is 0</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2><span class="no">07</span>Recipes</h2>
+  <div class="recipes">
+    <div><h4>Pure drone</h4><p>Pick abyss, set sequencer level to 0 and harmony to 0. Glide at 120 s or more, auto drift on. Good for working or sleeping.</p></div>
+    <div><h4>Berlin School</h4><p>Start from cruise and pull mutate down to around 0.1 to lock the loop. Reseed if you don’t like it. Lower the cutoff, raise resonance, open up space.</p></div>
+    <div><h4>Let the chords speak</h4><p>harmony 1, chop 0: sustained chords moving every 4 bars. Push chop to 0.5 or above for chopped chords every 2 bars.</p></div>
+    <div><h4>Toward industrial</h4><p>From abrasion or rust, raise tension and grit and keep brightness in the middle. More weight adds a heavier low-end mass.</p></div>
+    <div><h4>Slow scene changes</h4><p>Glide at 300 s, shuffle interval at 120 s. Each transition never finishes before the next begins, so it is always somewhere in between.</p></div>
+    <div><h4>Just leave it on shuffle</h4><p>That’s the default if you touch nothing. If shuffle got switched off, press “shuffle” in the left column again.</p></div>
+  </div>
+
+  <h2><span class="no">08</span>Good to know</h2>
+  <ul class="dots">
+    <li><b class="k">Keyboard</b> — <kbd>Space</kbd> toggles play / pause (when no control has focus)</li>
+    <li><b class="k">Background playback</b> — on iPhone / iPad it keeps playing when the screen locks or you switch apps, with play / pause on the lock screen</li>
+    <li><b class="k">iPadOS limitation</b> — after about 50 minutes of playback with the screen locked, the tab may be terminated. When you come back the page has reloaded; press play again. Long sessions on Safari for macOS are fine</li>
+    <li><b class="k">No network</b> — all synthesis happens in the browser with the Web Audio API, and nothing is sent anywhere. Save <code>index.html</code> and it works offline</li>
+    <li><b class="k">Source code</b> — <a href="https://github.com/mrmt/elevator-one">github.com/mrmt/elevator-one</a> (MIT License)</li>
+  </ul>
+
+</article>
+
+</div>
+
+<footer>
+  <span>Elevator One</span>
+  <span><a href="./" style="color:inherit">open the instrument</a> · <a href="https://github.com/mrmt/elevator-one" style="color:inherit">GitHub</a> · <a href="#ja" style="color:inherit">JA</a> · <a href="#en" style="color:inherit">EN</a></span>
+</footer>
+
+</body>
+</html>

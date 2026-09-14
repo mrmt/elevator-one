@@ -141,6 +141,31 @@ test('パッド中央の再生ボタンで再生でき、再生中は消える',
   await expect(big).toBeVisible();
 });
 
+// 再生ボタンの真下に解説ページへの入口を置き、再生ボタンと一緒に出し入れする
+test('パッド中央の再生ボタンの下に解説ページへのリンクがあり、再生中は消える', async ({ page }) => {
+  const big = page.locator('#bigplay');
+  const readme = page.locator('#readme');
+
+  await expect(readme).toBeVisible();
+  await expect(readme).toHaveText(/^(あそびかた|READ ME FIRST)$/);
+  await expect(readme).toHaveAttribute('href', /^about\.html#(ja|en)$/);
+
+  // 再生ボタンの真下にあり、重ならず、パッドからはみ出さない
+  const bigBox = await big.boundingBox();
+  const box = await readme.boundingBox();
+  const padBox = await page.locator('#plane').boundingBox();
+  expect(Math.abs((box.x + box.width / 2) - (bigBox.x + bigBox.width / 2))).toBeLessThan(2);
+  expect(box.y).toBeGreaterThanOrEqual(bigBox.y + bigBox.height);
+  expect(box.y + box.height).toBeLessThanOrEqual(padBox.y + padBox.height);
+  expect(box.x).toBeGreaterThanOrEqual(padBox.x);
+  expect(box.x + box.width).toBeLessThanOrEqual(padBox.x + padBox.width);
+
+  await big.click();
+  await expect(readme).toBeHidden();
+  await page.locator('#pause').click();
+  await expect(readme).toBeVisible();
+});
+
 // パッドの上に載っているので、押しても目標値が動いてはいけない (Issue #36)
 test('パッド中央の再生ボタンを押しても目標値は動かない', async ({ page }) => {
   // パッドは pointerdown を受けた地点へ目標を飛ばすので、そこへ届かないことを見る
