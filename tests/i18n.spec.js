@@ -26,6 +26,7 @@ test.describe('ブラウザ言語が日本語のとき', () => {
     await expect(manual).toBeVisible();
     await expect(manual).toHaveText('解説');
     await expect(manual).toHaveAttribute('href', 'about.html#ja');
+    await expect(manual).toHaveAttribute('target', '_blank');
     await expect(page.locator('#readme')).toHaveText('あそびかた');
     await expect(page.locator('#readme')).toHaveAttribute('href', 'about.html#ja');
   });

@@ -337,7 +337,7 @@
   <div class="transport">
     <!-- 解説ページへのリンク。狭幅でも mood を1行目に残せるよう、2行目に回る transport 側に置く。
          href のアンカーは applyI18n() が表示言語に合わせて付け替える -->
-    <a class="sub manual" id="manual" href="about.html#ja" data-i18n="header.manual">解説</a>
+    <a class="sub manual" id="manual" href="about.html#ja" target="_blank" rel="noopener" data-i18n="header.manual">解説</a>
     <!-- 再生 / 一時停止。ロック画面と同じ並びで、いま置かれている状態の側が点灯する (Issue #25) -->
     <button class="tbtn xport" id="play" data-on="0" aria-pressed="false" aria-label="再生" data-i18n-aria="transport.play" data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg></button>
     <button class="tbtn xport" id="pause" data-on="1" aria-pressed="true" aria-label="一時停止" data-i18n-aria="transport.pause" data-tip="音を止める。スペースキーでも切り替え可" data-i18n-tip="tip.pause"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg></button>
@@ -385,7 +385,7 @@
         <button class="bigplay" id="bigplay" aria-label="再生" data-i18n-aria="transport.play"
           data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg></button>
         <!-- 解説ページへの入口。再生ボタンと一緒に出し入れする。href は applyI18n() が言語に合わせて付け替える -->
-        <a class="readme" id="readme" href="about.html#ja" data-i18n="pad.readme">あそびかた</a>
+        <a class="readme" id="readme" href="about.html#ja" target="_blank" rel="noopener" data-i18n="pad.readme">あそびかた</a>
       </div>
     </div>
     <div class="axis"><span data-i18n="pad.dark">暗</span><span style="color:var(--ink)" data-i18n="pad.bright">明るさ</span><span data-i18n="pad.light">明</span></div>

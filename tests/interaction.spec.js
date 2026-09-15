@@ -149,6 +149,8 @@ test('パッド中央の再生ボタンの下に解説ページへのリンク�
   await expect(readme).toBeVisible();
   await expect(readme).toHaveText(/^(あそびかた|READ ME FIRST)$/);
   await expect(readme).toHaveAttribute('href', /^about\.html#(ja|en)$/);
+  // 遷移すると演奏が止まるので、別のタブで開く
+  await expect(readme).toHaveAttribute('target', '_blank');
 
   // 再生ボタンの真下にあり、重ならず、パッドからはみ出さない
   const bigBox = await big.boundingBox();
