@@ -34,6 +34,7 @@ CI では `github` / `list` / `html` の3つの reporter を使う。`github` �
 | `mobile-webkit` | iOS 相当 (iPhone 14 / WebKit、英語表示) | `tests/interaction.spec.js` |
 | `tablet-webkit` | iPadOS 相当 (iPad gen 7 / WebKit) | `tests/interaction.spec.js` |
 | `i18n-chromium` | 表示言語の切り替え | `tests/i18n.spec.js` |
+| `vjw-chromium` | VJ ウィンドウ (`?vjw`) が開き、表示が動き続けるか | `tests/vjw.spec.js` |
 
 表示言語はブラウザ言語で決まるため、既定の `locale` を `ja-JP` に固定してある（CI環境の既定に
 引きずられないように）。`mobile-webkit` だけは `en-US`。英語は日本語より文字列が長く、ヘッダーが

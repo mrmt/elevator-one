@@ -338,6 +338,8 @@
     <!-- 解説ページへのリンク。狭幅でも mood を1行目に残せるよう、2行目に回る transport 側に置く。
          href のアンカーは applyI18n() が表示言語に合わせて付け替える -->
     <a class="sub manual" id="manual" href="about.html#ja" target="_blank" rel="noopener" data-i18n="header.manual">解説</a>
+    <!-- ?vjw で起動したときだけ出す。閉じた VJ ウィンドウを開き直す入口。字面は「解説」と揃える -->
+    <button class="sub manual" id="vjw" hidden data-i18n-aria="transport.vjw" data-i18n-tip="tip.vjw">VJW</button>
     <!-- 再生 / 一時停止。ロック画面と同じ並びで、いま置かれている状態の側が点灯する (Issue #25) -->
     <button class="tbtn xport" id="play" data-on="0" aria-pressed="false" aria-label="再生" data-i18n-aria="transport.play" data-tip="音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可" data-i18n-tip="tip.play"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1 10 6l-7.5 5z"/></svg></button>
     <button class="tbtn xport" id="pause" data-on="1" aria-pressed="true" aria-label="一時停止" data-i18n-aria="transport.pause" data-tip="音を止める。スペースキーでも切り替え可" data-i18n-tip="tip.pause"><svg class="ico" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 1h2.6v10H2.5zM6.9 1h2.6v10H6.9z"/></svg></button>
@@ -425,6 +427,7 @@ ja: {
   'transport.play':'再生',
   'transport.pause':'一時停止',
   'transport.lang':'表示言語を切り替える',
+  'transport.vjw':'VJ ウィンドウを開く',
   'header.home':'トップへ戻る',
   'header.manual':'解説',
 
@@ -473,6 +476,7 @@ ja: {
   'tip.play':'音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
   'tip.pause':'音を止める。スペースキーでも切り替え可',
   'tip.lang':'表示言語を英語に切り替える',
+  'tip.vjw':'内部状態を流し続ける黒い VJ ウィンドウを開く。VDMX などでキャプチャして使う',
   'tip.shuffle':'決めた秒数ごとに雰囲気をランダムに切り替える',
   'tip.shuffleSec':'シャッフルが次の雰囲気へ切り替わるまでの秒数',
   'tip.drift':'放置しても目標値とルート音がゆっくり自然に揺れ続ける',
@@ -529,6 +533,7 @@ en: {
   'transport.play':'Play',
   'transport.pause':'Pause',
   'transport.lang':'Switch display language',
+  'transport.vjw':'Open VJ window',
   // "Back to top" はコンテンツブロッカーの「トップへ戻る」ボタン除去フィルタが
   // aria-label で拾って display:none にするため避ける
   'header.home':'Home',
@@ -578,6 +583,7 @@ en: {
   'tip.play':'Starts the sound. Browsers block audio until you interact with the page, so press this first. The space key works too',
   'tip.pause':'Stops the sound. The space key works too',
   'tip.lang':'Switch the display language to Japanese',
+  'tip.vjw':'Open the black VJ window that streams the engine internals. Capture it in VDMX or similar',
   'tip.shuffle':'Switches to a random mood at the interval you set',
   'tip.shuffleSec':'Seconds before shuffle moves on to the next mood',
   'tip.drift':'Keeps the target values and the root note drifting slowly on their own',
@@ -729,6 +735,20 @@ const disposals=[], uiSteps=[];
 function disposeAt(node,at){ disposals.push({node,at}); }
 function showStepAt(idx,at){ uiSteps.push({idx,at}); }
 
+// VJW (VJ window) 用のイベントログ。?vjw のときだけ積み、描画は後方の「VJW」節が行う。
+// reseed() が初期化の途中で呼ぶため、状態はここで先に宣言しておく
+const VJW=new URLSearchParams(location.search).has('vjw');
+const VJW_LOG_MAX=240;
+const vjwLog=[];
+let vjwEvents=0;
+function vjlog(tag,msg){
+  if(!VJW) return;
+  vjwEvents++;
+  const tm=ctx ? ctx.currentTime : performance.now()/1000;
+  vjwLog.push(`${tm.toFixed(3).padStart(10,'0')} ${String(vjwEvents).padStart(6,'0')} ${tag.padEnd(5)} ${msg}`);
+  if(vjwLog.length>VJW_LOG_MAX) vjwLog.splice(0,vjwLog.length-VJW_LOG_MAX);
+}
+
 function runDisposals(now){
   for(let i=disposals.length-1;i>=0;i--){
     if(disposals[i].at>now) continue;
@@ -823,6 +843,12 @@ function build(){
   master.connect(comp).connect(makeup).connect(clipPre).connect(clip).connect(ctx.destination);
   streamDest = ctx.createMediaStreamDestination();
   out.connect(streamDest);   // バックグラウンド再生用の <audio> へ流す経路
+  if(VJW){
+    // VJW のスペクトラム / 波形表示用。destination には繋がないので音にもテストのプローブにも影響しない
+    vjwAnalyser=ctx.createAnalyser(); vjwAnalyser.fftSize=1024; vjwAnalyser.smoothingTimeConstant=.55;
+    out.connect(vjwAnalyser);
+  }
+  vjlog('SYS', `AudioContext built ${ctx.sampleRate}Hz`);
 
   dry = ctx.createGain(); dry.gain.value=.85; dry.connect(master);
 
@@ -1089,6 +1115,7 @@ function ping(){
   pan.connect(dry); pan.connect(revSend); pan.connect(dlySend);
   o.start(t); o.stop(t+dur+.2);
   disposeAt(pan, t+dur+1);
+  vjlog('PING', `${f.toFixed(2)}Hz ${o.type} fm=${mo.frequency.value.toFixed(1)} dur=${dur.toFixed(2)}s pan=${pan.pan.value.toFixed(2)} pk=${pk.toFixed(4)}`);
 }
 
 function scheduleEvents(){
@@ -1116,6 +1143,7 @@ function grain(){
   pan.connect(dry); pan.connect(revSend); pan.connect(dlySend);
   src.start(t, Math.random()*(buf.duration-.2), dur+.03);
   disposeAt(pan, t+dur+1);
+  vjlog('GRAIN', `rate=${src.playbackRate.value.toFixed(3)} bpf=${bp.frequency.value.toFixed(0)} q=${bp.Q.value.toFixed(1)} dur=${(dur*1000).toFixed(1)}ms`);
 }
 function scheduleGrains(){
   nextGrainTime=ctx.currentTime+expMap(1-current.grit*GRIT_MAX,.03,3.0)*rand(.35,1.9);
@@ -1134,6 +1162,7 @@ function runScheduled(){
     if(autoDrift){
       const step=[-5,-3,-2,0,2,3,5][Math.floor(Math.random()*7)];
       rootTarget=clamp(rootMidi+step,26,45);
+      vjlog('ROOT', `${rootMidi.toFixed(3)} -> ${rootTarget.toFixed(3)} (${step>=0?'+':''}${step})`);
     }
     scheduleRoot();
   }
@@ -1155,6 +1184,12 @@ function reseed(){
     });
   }
   renderSteps();
+  vjlog('SEED', patternCode());
+}
+
+// VJW 用。1ステップを on/acc/oct/deg の1バイトに詰めた16進列 (32桁)
+function patternCode(){
+  return pattern.map(st=>((st.on?128:0)|(st.acc?64:0)|((st.oct+1)<<4)|st.deg).toString(16).toUpperCase().padStart(2,'0')).join('');
 }
 
 function stepDur(){ return 60/(55+current.tempo*95)/4; }   // 16分音符
@@ -1193,6 +1228,7 @@ function playStep(i,time){
   flt.connect(g).connect(pan).connect(build.seq.bus);
   [o1,o2,o3].forEach(o=>{o.start(time);o.stop(time+gate+.08)});
   disposeAt(pan, time+gate+1);
+  vjlog('STEP', `#${i.toString(16).toUpperCase().padStart(2,'0')} deg=${st.deg} oct=${st.oct} ${f.toFixed(2)}Hz cut=${peak.toFixed(0)} q=${flt.Q.value.toFixed(1)} gate=${gate.toFixed(3)}${st.acc?' ACC':''}`);
 
   // 4拍ごとの低音パルス
   if(i%4===0 && c.seq>.34){
@@ -1212,11 +1248,12 @@ function mutateBar(){
   const m=current.mutate;
   const hit=()=>Math.floor(Math.random()*16);
   if(Math.random()<m){
-    const st=pattern[hit()], r=Math.random();
+    const idx=hit(), st=pattern[idx], r=Math.random();
     if(r<.42) st.deg=Math.floor(Math.random()*7);
     else if(r<.72) st.on=!st.on;
     else if(r<.90) st.oct=[-1,0,0,1][Math.floor(Math.random()*4)];
     else st.acc=!st.acc;
+    vjlog('MUT', `step=${idx} ${r<.42?'deg':r<.72?'gate':r<.90?'oct':'acc'} -> ${patternCode()}`);
   }
   if(Math.random()<m*.45) pattern[hit()].deg=Math.floor(Math.random()*7);
   if(Math.random()<m*.12) reseed();
@@ -1266,6 +1303,14 @@ function setChord(time){
     v.ob.frequency.setValueAtTime(f,time);
     v.oc.frequency.setValueAtTime(f,time);
   });
+  vjlog('CHORD', `prog=${progIdx} pos=${chordPos} ${chordName(progIdx,chordPos)} notes=${notes.map(n=>n.toFixed(2)).join(',')}`);
+}
+
+// VJW 用。根音オフセットと長短から i / VI / III ... の度数表記を作る
+const ROMAN={0:'I',3:'III',5:'IV',7:'V',8:'VI',10:'VII'};
+function chordName(pi,pos){
+  const p=PROGS[pi], r=ROMAN[p.r[pos]];
+  return p.q[pos]==='m' ? r.toLowerCase() : r;
 }
 
 function chordBar(time){
@@ -1346,6 +1391,7 @@ function applyPreset(idx,btn){
   if(btn) btn.setAttribute('aria-pressed','true');
   moodIdx=idx; moodEdited=false; updateMood();
   syncUI(true);
+  vjlog('MOOD', `${pr.id} [${idx}]`);
 }
 PRESETS.forEach((pr,i)=>{
   const b=document.createElement('button');
@@ -1752,6 +1798,9 @@ setPowerUI(false);
 // MediaSession のハンドラも同じ関数を通る
 async function startAudio(){
   if(running) return;
+  // 読み込み時にポップアップブロックで開けなかった場合、ユーザー操作のこの時点で開く。
+  // 最初の await より前でないとユーザー操作扱いにならない
+  if(VJW && !vjwOpened) openVJW();
   // 「メディア再生」として申告してから鳴らす。順序を守らないとiOSで効かない
   if(navigator.audioSession) try{ navigator.audioSession.type='playback'; }catch(e){}
   if(!ctx) build();
@@ -1764,6 +1813,7 @@ async function startAudio(){
   routeToSink().catch(()=>{});   // 完了を待たない (待つと最初の音が遅れる)
   setupMediaSession();
   if('mediaSession' in navigator) navigator.mediaSession.playbackState='playing';
+  vjlog('SYS', `engine start clock=${clockNode?'worklet':'interval'}`);
 }
 
 function stopAudio(){
@@ -1775,6 +1825,7 @@ function stopAudio(){
   apply();
   if(sink) sink.pause();   // 経路の判定中 (sinkActive未確定) でも止める
   if('mediaSession' in navigator) navigator.mediaSession.playbackState='paused';
+  vjlog('SYS', 'engine stop');
 }
 
 playBtn.addEventListener('click',()=>{ startAudio(); });
@@ -1824,6 +1875,215 @@ document.addEventListener('mouseout', e=>{ const el=nearest(e.target); if(el&&el
 document.addEventListener('focusin',  e=>{ const el=nearest(e.target); if(el) showTip(el); });
 document.addEventListener('focusout', hideTip);
 window.addEventListener('blur', hideTip);
+
+/* ============================================================
+   VJW (VJ window)
+   ------------------------------------------------------------
+   ?vjw で起動したときだけ、内部状態を流し続ける黒い別ウィンドウを開く。
+   VDMX などの VJ ソフトでウィンドウキャプチャして素材にするためのもの。
+
+   同一オリジンの about:blank を window.open し、本体から直接 DOM を書き込む。
+   別ファイルもメッセージングも要らないので単一ファイル構成のまま file:// でも動く。
+   描画は子ウィンドウ側の requestAnimationFrame で回すので、本体タブが背面でも止まらない。
+   本体の状態は読むだけで、一切書き換えない
+   ============================================================ */
+const vjwBtn=document.getElementById('vjw');
+let vjwWin=null, vjwEl=null, vjwOpened=false, vjwAnalyser=null, vjwFreq=null, vjwTime=null;
+let vjwFrame=0, vjwFps=0, vjwLast=0, vjwLogSeen=-1;
+
+const VJW_CSS=`
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+body{
+  color:#E8E8E8;font:400 min(1.5vh,.8vw)/1.22 Menlo,Monaco,'SF Mono',Consolas,monospace;
+  cursor:none;user-select:none;-webkit-font-smoothing:antialiased;
+  display:grid;grid-template-columns:1.2fr 1.1fr 1fr;grid-template-rows:auto 1fr;
+  gap:.6em 1.8em;padding:.8em 1em;box-sizing:border-box;
+}
+#top{grid-column:1/-1;color:#D8A340;white-space:pre;overflow:hidden}
+.col{display:flex;flex-direction:column;gap:1em;min-height:0;overflow:hidden}
+.p{min-height:0;overflow:hidden;flex-shrink:0}
+.p.grow{flex:1 1 0;flex-shrink:1;display:flex;flex-direction:column}
+.p.grow pre{flex:1 1 0;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end}
+.h{color:#D8A340;letter-spacing:.12em}
+.h::before{content:'\\25A0  '}
+pre{margin:0;font:inherit;white-space:pre}
+`;
+// grow のパネルは下詰めで、あふれた分は上から切れていく (ログが下から湧いて見える)
+const vjwPanel=(id,title,grow)=>`<div class="p${grow?' grow':''}"><div class="h">${title}</div><pre id="${id}"></pre></div>`;
+const VJW_HTML=`<div id="top"></div>
+<div class="col">${vjwPanel('params','PARAMS  key / target / current / delta / u16 / level')}${vjwPanel('engine','ENGINE')}${vjwPanel('graph','AUDIO GRAPH  AudioParam.value')}</div>
+<div class="col">${vjwPanel('seq','SEQUENCER  16 STEP')}${vjwPanel('harm','HARMONY')}${vjwPanel('spec','SPECTRUM  64 BAND LOG 30Hz-16kHz')}${vjwPanel('wave','WAVEFORM  INT16 HEX',true)}</div>
+<div class="col">${vjwPanel('log','EVENT LOG',true)}${vjwPanel('mem','STATE MEMORY  FLOAT32 DUMP')}</div>`;
+const VJW_IDS=['top','params','engine','graph','seq','harm','spec','wave','log','mem'];
+
+function openVJW(){
+  if(vjwWin && !vjwWin.closed){ vjwWin.focus(); return; }
+  const w=window.open('', 'elevator-one-vjw', 'popup,width=1280,height=720');
+  if(!w) return;   // ポップアップブロック。startAudio() か #vjw の押下で開き直す
+  vjwOpened=true; vjwWin=w;
+  const d=w.document;
+  d.head.innerHTML=`<meta charset="utf-8"><style>${VJW_CSS}</style>`;
+  d.title=`Elevator One ${VERSION} — VJW`;   // head を書き換えたあとに付ける (先に付けると消える)
+  d.body.innerHTML=VJW_HTML;
+  vjwEl={};
+  for(const id of VJW_IDS) vjwEl[id]=d.getElementById(id);
+  vjwLast=0; vjwLogSeen=-1;
+  w.requestAnimationFrame(drawVJW);
+}
+
+const vjHex=(v,n)=>(v>>>0).toString(16).toUpperCase().padStart(n,'0');
+const vjBar=(v,n)=>{ const k=Math.round(clamp(v)*n); return '█'.repeat(k)+'·'.repeat(n-k); };
+const vjSgn=v=>(v<0?'-':'+')+Math.abs(v).toExponential(2);
+const vjDb=v=>(v>1e-6 ? 20*Math.log10(v) : -120).toFixed(1).padStart(6);
+const vjP=(p,d=3)=>p ? p.value.toFixed(d) : '--';   // AudioParam の現在値 (オートメーション込み)
+const NOTE_NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const vjNote=m=>{ const n=Math.round(m); return NOTE_NAMES[((n%12)+12)%12]+(Math.floor(n/12)-1); };
+const SPEC_BLOCKS=' ▁▂▃▄▅▆▇█';
+
+function drawVJW(ts){
+  if(!vjwWin || vjwWin.closed){ vjwWin=null; return; }
+  vjwWin.requestAnimationFrame(drawVJW);
+  if(vjwLast) vjwFps+=(1000/Math.max(1,ts-vjwLast)-vjwFps)*.1;
+  vjwLast=ts; vjwFrame++;
+  const e=vjwEl, c=current, now=ctx ? ctx.currentTime : 0;
+
+  e.top.textContent=`ELEVATOR ONE ${VERSION} // VJW   MOOD ${moodLabel()}   ${running?'▶ RUN ':'■ STOP'}   CTX ${ctx?ctx.state:'none'} ${ctx?ctx.sampleRate:'-----'}Hz   T ${now.toFixed(3).padStart(10,'0')}   FRAME ${vjHex(vjwFrame,8)}   FPS ${vjwFps.toFixed(1).padStart(5)}   EVT ${String(vjwEvents).padStart(6,'0')}`;
+
+  // ---- パラメータ
+  let s='';
+  for(const k in P){
+    const tv=target[k], cv=c[k];
+    s+=`${k.padEnd(8)} ${tv.toFixed(6)} ${cv.toFixed(6)} ${vjSgn(tv-cv)} ${vjHex(Math.round(clamp(cv)*65535),4)} ${vjBar(cv,20)}\n`;
+  }
+  e.params.textContent=s;
+
+  // ---- エンジン
+  const eff=rootMidi-c.weight*7;
+  const rem=at=>ctx&&running ? ((at>=now?'+':'')+(at-now).toFixed(3)+'s') : '--';
+  const lat=v=>v!=null ? v.toFixed(4) : '--';
+  e.engine.textContent=
+`root.midi   ${rootMidi.toFixed(4)} -> ${rootTarget.toFixed(0)}  ${vjNote(rootMidi)}
+root.eff    ${eff.toFixed(4)}  ${mtof(eff).toFixed(3)}Hz  ${vjNote(eff)}
+glide       ${glide}s  tau ${(Math.max(1,glide)/3).toFixed(3)}
+volume      ${volume}  level ${c.level.toFixed(3)}  boost ${Math.max(0,(volume-80)/20).toFixed(3)}
+drift       ${autoDrift?'ON ':'OFF'}  shuffle ${shuffleOn?'ON ':'OFF'} ${shuffleSec}s
+tempo       ${(55+c.tempo*95).toFixed(2)}bpm  16th ${stepDur().toFixed(4)}s
+next.event  ${rem(nextEventTime)}
+next.grain  ${rem(nextGrainTime)}
+next.root   ${rem(nextRootTime)}
+next.step   ${rem(nextStepTime)}
+queue       dispose ${String(disposals.length).padStart(4,'0')}  ui ${String(uiSteps.length).padStart(3,'0')}
+clock       ${clockNode?'AudioWorklet':fallbackTimer?'setInterval':'--'}
+route       ${sinkActive?'<audio> MediaStream':'ctx.destination'}
+latency     base ${lat(ctx&&ctx.baseLatency)}  out ${lat(ctx&&ctx.outputLatency)}`;
+
+  // ---- オーディオグラフ (ノードの実値)
+  if(ready){
+    s='';
+    voices.forEach((v,i)=>{
+      s+=`drone.${i}  f ${vjP(v.oscA.frequency).padStart(9)} det ${vjP(v.oscA.detune,2).padStart(7)} lpf ${vjP(v.f.frequency,1).padStart(7)} amp ${vjP(v.g.gain,4)} pan ${vjP(v.pan.pan,2).padStart(5)}\n`;
+    });
+    metal.forEach((m,i)=>{
+      s+=`metal.${i}  bpf ${vjP(m.bp.frequency,1).padStart(7)} q ${vjP(m.bp.Q,1).padStart(5)} pan ${vjP(m.pp.pan,2).padStart(5)}\n`;
+    });
+    const tx=build.tex, sq=build.seq, pd=build.pad, dl=build.delay;
+    s+=
+`noise    bpf ${vjP(noise.nf.frequency,1)} amp ${vjP(noise.ng.gain,4)} pan ${vjP(noise.np.pan)}
+tex      in ${vjP(tx.texIn.gain)} out ${vjP(tx.texOut.gain,4)} hp ${vjP(tx.texHP.frequency,1)} lp ${vjP(tx.texLP.frequency,1)}
+ring     f ${vjP(tx.ringOsc.frequency,2)} depth ${vjP(tx.ringDepth.gain,4)} dust ${vjP(tx.crkDepth.gain,4)}
+seq.bus  ${vjP(sq.bus.gain,4)} tapL ${vjP(sq.tapL.d.delayTime,4)}s tapR ${vjP(sq.tapR.d.delayTime,4)}s
+pad.bus  ${vjP(pd.padBus.gain,4)} env ${vjP(pd.padEnv.gain,4)} lpf ${vjP(pd.padFil.frequency,1)}
+delay    t ${vjP(dl.dl.delayTime)}s fb ${vjP(dl.fb.gain)} out ${vjP(dl.dOut.gain)}
+reverb   ${vjP(build.revGain.gain)}  dry ${vjP(dry.gain)}
+comp     thr ${vjP(comp.threshold,2)} ratio ${vjP(comp.ratio,2)} gr ${comp.reduction.toFixed(2)}dB
+master   ${vjP(master.gain,4)}  makeup ${vjP(makeup.gain)}`;
+    e.graph.textContent=s;
+  }else{
+    e.graph.textContent='audio graph not built\n// waiting for play';
+  }
+
+  // ---- シーケンサ
+  const row=fn=>pattern.map(fn).join('');
+  e.seq.textContent=
+`STEP ${row((_,i)=>' '+vjHex(i,2))}
+GATE ${row(st=>st.on?'  █':'  ·')}
+DEG  ${row(st=>'  '+st.deg)}
+OCT  ${row(st=>'  '+(st.oct>0?'+':st.oct<0?'-':'0'))}
+ACC  ${row(st=>st.acc?'  *':'   ')}
+NOW  ${row((_,i)=>i===uiStep?' ▲▲':'   ')}
+bar ${vjHex(Math.max(0,barCount),4)}  step ${uiStep<0?'--':vjHex(uiStep,2)}  seq ${c.seq.toFixed(3)}  mutate ${c.mutate.toFixed(3)}
+code ${patternCode()}`;
+
+  // ---- 和声
+  const r=c.chordrhy;
+  e.harm.textContent=
+`prog ${progIdx}/${PROGS.length}  ${PROGS[progIdx].r.map((_,j)=>j===chordPos?`[${chordName(progIdx,j)}]`:` ${chordName(progIdx,j)} `).join(' ')}
+harm ${c.harm.toFixed(3)}  rhythm ${r.toFixed(3)} ${r<.08?'SUSTAIN':'RHY'+(r<.40?0:r<.72?1:2)}  cycle ${r>=.5?2:4}bar
+pad  ${ready?build.pad.padVoices.map(v=>vjP(v.oa.frequency,2).padStart(8)).join(' '):'--'}`;
+
+  // ---- スペクトラム / 波形
+  if(vjwAnalyser){
+    const a=vjwAnalyser;
+    vjwFreq=vjwFreq||new Uint8Array(a.frequencyBinCount);
+    vjwTime=vjwTime||new Float32Array(a.fftSize);
+    a.getByteFrequencyData(vjwFreq); a.getFloatTimeDomainData(vjwTime);
+    const W=64, H=10, n=vjwFreq.length, nyq=ctx.sampleRate/2, lv=[];
+    for(let x=0;x<W;x++){
+      const lo=Math.floor(expMap(x/W,30,16000)/nyq*n);
+      const hi=Math.max(lo+1,Math.floor(expMap((x+1)/W,30,16000)/nyq*n));
+      let m=0;
+      for(let i=lo;i<hi&&i<n;i++) m=Math.max(m,vjwFreq[i]);
+      lv.push(m/255);
+    }
+    let peak=0, sum=0;
+    for(const v of vjwTime){ peak=Math.max(peak,Math.abs(v)); sum+=v*v; }
+    s='';
+    for(let y=H-1;y>=0;y--){
+      for(let x=0;x<W;x++) s+=SPEC_BLOCKS[Math.round(clamp(lv[x]*H-y)*8)];
+      s+='\n';
+    }
+    e.spec.textContent=s+`peak ${vjDb(peak)}dBFS  rms ${vjDb(Math.sqrt(sum/vjwTime.length))}dB`;
+
+    const COLS=10, ROWS=28, stride=Math.max(1,Math.floor(vjwTime.length/(COLS*ROWS)));
+    s='';
+    for(let y=0;y<ROWS;y++){
+      s+=vjHex(y*COLS*stride,4)+' ';
+      for(let x=0;x<COLS;x++) s+=' '+vjHex(Math.round(clamp(vjwTime[(y*COLS+x)*stride]||0,-1,1)*32767)&0xFFFF,4);
+      s+='\n';
+    }
+    e.wave.textContent=s;
+  }else{
+    e.spec.textContent='no signal\n// analyser not attached';
+    e.wave.textContent='';
+  }
+
+  // ---- イベントログ (増えたときだけ差し替える)
+  if(vjwLogSeen!==vjwEvents){ vjwLogSeen=vjwEvents; e.log.textContent=vjwLog.slice(-120).join('\n'); }
+
+  // ---- 状態の Float32 ダンプ
+  const vals=[now, rootMidi, rootTarget, glide, volume, vjwFps, vjwFrame, vjwEvents];
+  for(const k in P) vals.push(c[k], target[k]);
+  const bytes=new Uint8Array(new Float32Array(vals).buffer);
+  s='';
+  for(let o=0;o<bytes.length;o+=16){
+    let hex='', asc='';
+    for(let i=o;i<o+16&&i<bytes.length;i++){
+      if(i>o && (i-o)%4===0) hex+=' ';
+      hex+=vjHex(bytes[i],2);
+      asc+=bytes[i]>=33&&bytes[i]<127 ? String.fromCharCode(bytes[i]) : '.';
+    }
+    s+=`${vjHex(o,4)}  ${hex.padEnd(35)}  ${asc}\n`;
+  }
+  e.mem.textContent=s;
+}
+
+if(VJW){
+  vjwBtn.hidden=false;
+  vjwBtn.addEventListener('click',openVJW);
+  // 本体を閉じたりリロードしたら VJ ウィンドウも閉じる (中身を描いているのは本体のため)
+  window.addEventListener('pagehide',()=>{ if(vjwWin && !vjwWin.closed) vjwWin.close(); });
+  openVJW();   // ブロックされたら startAudio() で開き直す
+}
 
 /* ---- 表示言語の適用 ---- */
 // 静的HTMLも動的生成された要素も、data-i18n* 属性さえ付いていればここで一括更新される。
