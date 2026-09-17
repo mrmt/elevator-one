@@ -60,6 +60,8 @@ test('タイトルの左にアイコンがあり、親ディレクトリへリ�
   const home = page.locator('header a.home');
   await expect(home).toBeVisible();
   await expect(home).toHaveAttribute('href', '../');
+  // 遷移すると演奏が止まるので、解説ページへのリンクと同じく別のタブで開く (Issue #44)
+  await expect(home).toHaveAttribute('target', '_blank');
   // SVG は index.html に直書きしてあり、外部ファイルを読まない
   await expect(home.locator('svg')).toHaveCount(1);
   const icon = await home.boundingBox();
