@@ -53,6 +53,10 @@
   }
   .sub{font-size:.68rem;letter-spacing:.24em;color:var(--dim);text-transform:uppercase}
   .ver{opacity:.6}
+  /* コミット番号は git log と同じ小文字で見せる (.sub の大文字化を外す) */
+  .ver .commit{text-transform:none}
+  /* スマホ幅では番号を隠す。英語表示の iPhone 14 で mood がタイトルの行から落ちた (Issue #43) */
+  @media (max-width:600px){ .ver .commit{display:none} }
   /* 現在の mood。シャッフル中も何が鳴っているか分かるように少しだけ立たせる (Issue #12) */
   .mood{color:var(--amber);opacity:.85}
   .transport{margin-left:auto;display:flex;gap:.55rem;align-items:center;flex-shrink:0}
@@ -326,7 +330,7 @@
 
 <header>
   <!-- 外部ファイルを増やさないよう SVG は直書き -->
-  <a class="home" href="../" aria-label="トップへ戻る" data-i18n-aria="header.home"><svg viewBox="0 0 512 512" aria-hidden="true"><g><path fill-rule="evenodd" d="M48 0H464A48 48 0 0 1 512 48V464A48 48 0 0 1 464 512H48A48 48 0 0 1 0 464V48A48 48 0 0 1 48 0ZM72 34H440A38 38 0 0 1 478 72V440A38 38 0 0 1 440 478H72A38 38 0 0 1 34 440V72A38 38 0 0 1 72 34Z"/><path d="M149 122L241 210L241 270L170 208V381H128V208L59 270V210Z"/><path d="M342 135H385V310L457 247V306L364 394L272 307V247L342 310Z"/></g></svg></a>
+  <a class="home" href="../" target="_blank" rel="noopener" aria-label="トップへ戻る" data-i18n-aria="header.home"><svg viewBox="0 0 512 512" aria-hidden="true"><g><path fill-rule="evenodd" d="M48 0H464A48 48 0 0 1 512 48V464A48 48 0 0 1 464 512H48A48 48 0 0 1 0 464V48A48 48 0 0 1 48 0ZM72 34H440A38 38 0 0 1 478 72V440A38 38 0 0 1 440 478H72A38 38 0 0 1 34 440V72A38 38 0 0 1 72 34Z"/><path d="M149 122L241 210L241 270L170 208V381H128V208L59 270V210Z"/><path d="M342 135H385V310L457 247V306L364 394L272 307V247L342 310Z"/></g></svg></a>
   <div class="mark">Elevator One</div>
   <div class="sub tagline">generative ambient / minimal / drone</div>
   <div class="sub ver" id="ver"></div>
@@ -1326,7 +1330,19 @@ const presetsEl=document.getElementById('presets');
 // シャッフル中は mood タブを開かないと何が鳴っているのか分からなかった (Issue #12)。
 // ヘッダー / ブラウザのタイトル / MediaMetadata (ロック画面・CarPlay) の3か所に出す
 const VERSION='v1.4';
-document.getElementById('ver').textContent=VERSION;
+/* コミット番号 (Issue #43)。git archive で配ると、.gitattributes の export-subst が
+   ここを HEAD の短いハッシュに置き換える。手元で直接開いたときは置き換わらないので出さない。
+   git はファイル中の同じ書式をすべて置き換えるので、この書式はここ以外に書かないこと */
+const COMMIT='$Format:%h$';
+{
+  const ver=document.getElementById('ver');
+  ver.textContent=VERSION;
+  if(/^[0-9a-f]{7,}$/.test(COMMIT)){
+    // 狭い画面で番号だけ隠せるよう、span で分けておく
+    const c=document.createElement('span'); c.className='commit'; c.textContent=' '+COMMIT.slice(0,7);
+    ver.appendChild(c);
+  }
+}
 const moodEl=document.getElementById('mood');
 let moodIdx=0, moodEdited=false;
 function moodLabel(){
