@@ -75,6 +75,15 @@ export default defineConfig({
       testMatch: /interaction\.spec\.js/,
       use: { ...devices['iPad (gen 7)'] },
     },
+    // VJ ウィンドウ (?vjw)。ポップアップの中身が動き続けるかを見るので再生を許可する
+    {
+      name: 'vjw-chromium',
+      testMatch: /vjw\.spec\.js/,
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
+      },
+    },
     // 表示言語。locale はテスト側の test.use() で切り替える
     {
       name: 'i18n-chromium',

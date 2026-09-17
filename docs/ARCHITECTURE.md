@@ -333,6 +333,50 @@ AudioWorklet が使えない環境では `setInterval(tick, 25)` へフォール
 **実機でロックしても鳴り続けるかどうかは自動テストでは確かめられない**ので、
 iPhone 実機での確認が要る。
 
+## VJ ウィンドウ（`?vjw`）
+
+VDMX などの VJ ソフトでキャプチャする素材として、内部状態を流し続ける黒い別ウィンドウを開く。
+`new URLSearchParams(location.search).has('vjw')` が真のときだけ有効（定数 `VJW`）。
+
+### 方式
+
+`window.open('', 'elevator-one-vjw', 'popup,...')` で同一オリジンの about:blank を開き、
+本体の IIFE から `document.head` / `document.body` に直接書き込む。
+
+- 別ファイルを増やさないので単一ファイル構成のまま。`BroadcastChannel` は `file://` で
+  使えないため採らなかった。直接書き込みなら `file://` でも動く
+- 本体の `current` / `pattern` / ノードをそのまま読むので、シリアライズもメッセージングも無い
+- 描画ループ `drawVJW()` は**子ウィンドウの** `requestAnimationFrame` に載せる。本体タブが
+  背面に回って本体側の rAF が止まっても、VJ ウィンドウが見えていれば毎フレーム描かれる
+- 本体の状態は読むだけ。表示用に値を書き換える箇所は無い
+
+ポップアップブロックに備えて開く入口は3つ。読み込み時に試し、ブロックされたら `startAudio()`
+の冒頭（最初の `await` より前なのでユーザー操作扱い）で `vjwOpened` が偽なら開く。
+閉じたあとはヘッダーの `#vjw`（`?vjw` のときだけ `hidden` を外す）で開き直す。
+中身を描いているのは本体なので、`pagehide` で VJ ウィンドウも閉じる。
+
+### 表示するもの
+
+| パネル | 中身 |
+| --- | --- |
+| 最上段 | VERSION / mood / 再生状態 / `ctx.state` / sampleRate / `currentTime` / フレーム数 / fps / イベント数 |
+| PARAMS | `P` の全キーの target / current / 差分 / 16bit 値 / バー |
+| ENGINE | 根音 / glide / volume / 次の予定時刻 / 片付け待ちキュー / 時計と出力経路 / レイテンシ |
+| AUDIO GRAPH | ドローン5声・金属共鳴・ノイズ・質感・シーケンサ・パッド・ディレイ・コンプ・master の `AudioParam.value`（オートメーション込みの実値）と `comp.reduction` |
+| SEQUENCER / HARMONY | `pattern` のグリッドと現在ステップ、`patternCode()`、`PROGS` と `chordName()` の度数表記 |
+| SPECTRUM / WAVEFORM | `vjwAnalyser` の FFT を64バンドのブロック文字、時間波形を int16 の16進ダンプ |
+| EVENT LOG | `vjlog()` が積んだ直近のイベント |
+| STATE MEMORY | 主要な状態を `Float32Array` に詰めたバイト列の16進 / ASCII ダンプ |
+
+- `vjwAnalyser` は `build()` で `out` から分岐させる。destination には繋がないので音にも
+  `tests/helpers/audio.js` のプローブにも影響しない。`?vjw` でなければ作らない
+- `vjlog(tag, msg)` は `ping` / `grain` / `playStep` / `setChord` / `mutateBar` / `reseed` /
+  `applyPreset` / 根音の移動 / `build` / `startAudio` / `stopAudio` から呼ぶ。`VJW` が偽なら即 return し、
+  真なら `VJW_LOG_MAX` 行のリングバッファに積む（ウィンドウを閉じていても積むので、開き直すと履歴が見える）。
+  `reseed()` が初期化の途中で呼ぶため、`VJW` / `vjwLog` / `vjlog` はオーディオ節の冒頭で宣言してある
+- 文字サイズは `min(1.5vh, .8vw)` でウィンドウの大きさに追従する。あふれたパネルは切り、
+  ログと波形は下詰めで上から切れる
+
 ## 既知の設計上の制約
 
 ### iPadOS では約50分でタブごと落ちる（Issue #23、未解決）
