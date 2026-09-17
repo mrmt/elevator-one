@@ -56,6 +56,14 @@ test('バージョンがタイトルの右に表示される', async ({ page }) 
   expect(await size('.ver')).toBeLessThan(await size('.mark'));
 });
 
+test('バージョン表示は tag だけで、置き換え前の書式は見せない', async ({ page }) => {
+  /* Issue #43。コミット番号は git archive で配るときに差し込まれる。
+     テストは作業ツリーの index.html をそのまま配信するので、ここでは番号は出ず、
+     置き換え前の書式の文字列も表示に漏れないことを見る */
+  await expect(page.locator('#ver')).toHaveText(/^v\d+\.\d+$/);
+  await expect(page.locator('#ver .commit')).toHaveCount(0);
+});
+
 test('タイトルの左にアイコンがあり、親ディレクトリへリンクする', async ({ page }) => {
   const home = page.locator('header a.home');
   await expect(home).toBeVisible();
