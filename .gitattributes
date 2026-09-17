@@ -1,0 +1,2 @@
+# git archive で配るとき、index.html の COMMIT を HEAD の短いハッシュに置き換える (Issue #43)
+index.html export-subst

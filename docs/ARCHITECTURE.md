@@ -413,3 +413,15 @@ MediaStream を長時間動かし続けること自体か、iPadOS のバック�
 - `viewport-fit=cover` を指定し、ノッチ / ホームインジケータは `body` の
   `padding:env(safe-area-inset-*)` で避ける。指定しないと iOS がページをセーフエリア内に押し込み、
   landscape で上下左右に余白が出る (Issue #9)。背景は padding 領域まで塗られるので画面全体に広がる
+
+## バージョン表示とコミット番号
+
+ヘッダーの `#ver` は `VERSION` (tag) と、`<span class="commit">` の7桁のコミット番号を出す (Issue #43)。
+番号は `COMMIT` の定数に置いた git の書式の置き場所を、`.gitattributes` の `export-subst` が
+`git archive` のときに HEAD の短いハッシュへ置き換えたもの。置き換わっていなければ (手元で直接開いた、
+テストで配信した) 番号は出さない。git はファイル中の同じ書式をすべて置き換えるので、その書式は `COMMIT` 以外に書かない。
+
+- デプロイ (elevator-noise の `Makefile`、このリポジトリの外) は
+  `git -C ../elevator-one -c core.abbrev=7 archive HEAD index.html | tar -x -C public/one/` で取り出す。
+  配信されるのはチェックアウト中のブランチのコミット済みの HEAD
+- スマホ幅 (600px 以下) では番号を隠す。英語表示の iPhone 14 で mood がタイトルの行から落ちたため
