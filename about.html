@@ -266,7 +266,7 @@
 
   <h2><span class="no">02</span>画面構成</h2>
   <div class="layout">
-    <div class="top"><span><span class="t">header</span><small>ホーム · バージョン · JA/EN · 現在の雰囲気</small></span><span style="text-align:right"><span class="t">▶ ⏸</span><small>再生 / 一時停止</small></span></div>
+    <div class="top"><span><span class="t">header</span><small>ホーム · バージョン · JA/EN · 現在の雰囲気</small></span><span style="text-align:right"><span class="t">解説 ▶ ⏸</span><small>解説ページ · 再生 / 一時停止</small></span></div>
     <div><span class="t">雰囲気</span><small>シャッフル<br>切り替え間隔<br>プリセット15種</small></div>
     <div><span class="t">XYパッド</span><small>横: 明るさ / 縦: 密度<br>ルート音・明るさ・密度・緊張の現在値<br>下に16ステップ列とテンポ</small></div>
     <div><span class="t">音作り</span><small>パラメータ · 自動漂流<br>シーケンサ · 再生成<br>展開</small></div>
@@ -373,6 +373,7 @@
     <li><b class="k">キーボード</b> — <kbd>Space</kbd> で再生 / 一時停止 (入力欄にフォーカスがないとき)</li>
     <li><b class="k">バックグラウンド再生</b> — iPhone / iPad で画面をロックしたり別アプリへ移っても鳴り続け、ロック画面に再生 / 一時停止が出る</li>
     <li><b class="k">iPadOS の制限</b> — 画面をロックしたまま50分ほど再生するとタブごと終了することがある。戻ると読み込み直された状態なので、再生を押し直す。macOS の Safari では長時間でも問題ない</li>
+    <li><b class="k">VJ ウィンドウ</b> — URL の末尾に <code>?vjw</code> を付けて開くと、黒い背景に内部状態 (全パラメータ、各声の周波数、16ステップのパターン、コード進行、スペクトラム、波形) が毎フレーム流れる別ウィンドウが開く。VJ ソフトでキャプチャして映像素材にするためのもの。音と操作は元のウィンドウのまま。ポップアップがブロックされたときは再生を押した時点で開き、閉じたあとはヘッダーの <code>VJW</code> で開き直せる</li>
     <li><b class="k">通信しない</b> — 合成はすべてブラウザ内の Web Audio API。外部への通信はない。<code>index.html</code> を保存すればオフラインでも動く</li>
     <li><b class="k">ソースコード</b> — <a href="https://github.com/mrmt/elevator-one">github.com/mrmt/elevator-one</a> (MIT ライセンス)</li>
   </ul>
@@ -410,7 +411,7 @@
 
   <h2><span class="no">02</span>Layout</h2>
   <div class="layout">
-    <div class="top"><span><span class="t">header</span><small>home · version · JA/EN · current mood</small></span><span style="text-align:right"><span class="t">▶ ⏸</span><small>play / pause</small></span></div>
+    <div class="top"><span><span class="t">header</span><small>home · version · JA/EN · current mood</small></span><span style="text-align:right"><span class="t">manual ▶ ⏸</span><small>this page · play / pause</small></span></div>
     <div><span class="t">mood</span><small>shuffle<br>interval<br>15 presets</small></div>
     <div><span class="t">XY pad</span><small>x: brightness / y: density<br>live root, brightness, density, tension<br>16-step strip and tempo below</small></div>
     <div><span class="t">sound</span><small>parameters · auto drift<br>sequencer · reseed<br>progression</small></div>
@@ -517,6 +518,7 @@
     <li><b class="k">Keyboard</b> — <kbd>Space</kbd> toggles play / pause (when no control has focus)</li>
     <li><b class="k">Background playback</b> — on iPhone / iPad it keeps playing when the screen locks or you switch apps, with play / pause on the lock screen</li>
     <li><b class="k">iPadOS limitation</b> — after about 50 minutes of playback with the screen locked, the tab may be terminated. When you come back the page has reloaded; press play again. Long sessions on Safari for macOS are fine</li>
+    <li><b class="k">VJ window</b> — add <code>?vjw</code> to the URL and a second window opens on a black background, streaming the internal state (every parameter, the frequency of each voice, the 16-step pattern, the chord progression, spectrum, waveform) frame by frame. It is meant to be captured by VJ software as visual material; sound and controls stay in the original window. If the popup is blocked it opens when you press play, and <code>VJW</code> in the header reopens it</li>
     <li><b class="k">No network</b> — all synthesis happens in the browser with the Web Audio API, and nothing is sent anywhere. Save <code>index.html</code> and it works offline</li>
     <li><b class="k">Source code</b> — <a href="https://github.com/mrmt/elevator-one">github.com/mrmt/elevator-one</a> (MIT License)</li>
   </ul>
