@@ -35,6 +35,7 @@ CI では `github` / `list` / `html` の3つの reporter を使う。`github` �
 | `tablet-webkit` | iPadOS 相当 (iPad gen 7 / WebKit) | `tests/interaction.spec.js` |
 | `i18n-chromium` | 表示言語の切り替え | `tests/i18n.spec.js` |
 | `vjw-chromium` | VJ ウィンドウ (`?vjw`) が開き、表示が動き続けるか | `tests/vjw.spec.js` |
+| `midi-chromium` | MIDI クロックの出力 | `tests/midi.spec.js` |
 
 表示言語はブラウザ言語で決まるため、既定の `locale` を `ja-JP` に固定してある（CI環境の既定に
 引きずられないように）。`mobile-webkit` だけは `en-US`。英語は日本語より文字列が長く、ヘッダーが
@@ -58,6 +59,12 @@ WebKit は iOS/iPadOS Safari と同じエンジンなので、デバイスエミ
 - バックグラウンド再生に関わるもの → `tests/background.spec.js` に追加。`page.addInitScript()` で
   `AudioWorkletNode` / `AudioNode.prototype.disconnect` / `setInterval` を包み、どの経路が選ばれたかを
   `window.__probe` に記録している。ロック中に鳴り続けるかは自動テストでは分からないので、実機で見ること
+- MIDI クロックに関わるもの → `tests/midi.spec.js` に追加。実機のポートは無いので、
+  `page.addInitScript()` で `navigator.requestMIDIAccess` を偽物に差し替え、`send()` に渡ったバイトと
+  タイムスタンプを `window.__midi` に記録している。`接続…` でポートが並ぶこと、再生で Start のあとに
+  クロックが6発単位で出て間隔がテンポどおりであること、停止で `clear()` のあと Stop が出て以後増えないこと、
+  再生中に選ぶと Start から始まること、オフでは送らないこと、許可済みなら前回のポートを選び直すこと、
+  言語切替に追随すること、Web MIDI が無いと行が出ないことを見る。実機 (IAC ドライバ + DAW) での同期は手で確かめる
 - 新しい環境を足したいとき (例: Android Chrome) → `playwright.config.js` の `projects` に追加する。`testMatch` でどの spec を走らせるか決まる
 
 数値の閾値を置くときは実測値をコメントに残しておくと、後から緩め過ぎ・厳し過ぎを判断しやすい。

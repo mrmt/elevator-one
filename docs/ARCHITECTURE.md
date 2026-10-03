@@ -20,6 +20,7 @@
    - 単発の音（`ping`, `scheduleEvents`）
    - 平滑化ループ（`smooth()`、100ms間隔）
    - シーケンサ（`playStep`, `seqTick`, `mutateBar`）
+   - MIDI クロック（`midiClockStep`, `midiStop`, `midiPortSelect`）— 後述
    - 展開＝コード進行（`chordBar`, `chordStep`, `PROGS`, `CHORD`, `RHY`）
    - UI生成（プリセットボタン、スライダー、シャッフル、ツールチップ）
    - XYパッドの描画ループ（`draw`, マリンスノー, 背景色 `seaColors`）
@@ -113,6 +114,25 @@ droneBus → texIn(gain) → shaper(WaveShaper) → texHP → texLP → ringGate
 - 4ステップごと（`i % 4 === 0`）に低音パルスが `build.seq.bus` へ入る。**この経路は「音量」フェーダー
   (`seq`) の影響を受ける** よう `build.seq.bus` に接続している（旧バージョンで `dry` 直結になっていて
   フェーダーが効かないバグがあったため、修正済み）
+
+### MIDI クロック
+
+- `seqTick()` が16分1つを予約するたびに `midiClockStep()` が `0xF8` を6発 (24 PPQN) 予約する。
+  `setTimeout` で都度送るとメインスレッドの揺れがそのままジッタになるので、音と同じ先読みに乗せる。
+  1ステップの長さは `stepDur()` (= `current.tempo`) なので、テンポの推移に合わせて間隔も連続して変わる
+- 時刻は `audioToPerfMs()` が `ctx.getOutputTimestamp()` で `performance.now()` 基準に直し、
+  `MIDIOutput.send()` のタイムスタンプで渡す。出口で鳴っている時刻の対を使うので、聞こえる音と揃う
+- 送るのは Timing Clock (`0xF8`)・Start (`0xFA`)・Stop (`0xFC`) だけ。Song Position Pointer は送らない
+  (曲の位置という概念が無く、受け手には常に頭からの Start で足りる)
+- Start は小節の頭 (`idx===0`) まで待って送る (`midiStartPending`)。再生中にポートを選んだときも同じで、
+  受け手の1拍目を小節の頭に揃える
+- Stop は `stopAudio()` から `midiStop()`。先に `clear()` で予約済みのクロックを捨てる。
+  捨てないと先読みの最大0.15秒ぶんが Stop のあとに届く
+- 出力先は音作り → シーケンサの `#s_midi` (`midiPortSelect()`)。読み込み時に権限の確認を出さないよう、
+  一覧は `接続…` を選んだときに `requestMIDIAccess()` で取りに行く。選んだポート名は
+  `localStorage['elevator-one:midi-out']` に残し、`permissions.query({name:'midi'})` が `granted`
+  なら次の読み込みで黙って選び直す。抜かれたポートは送るのをやめ、`onstatechange` で挿し直せば戻る
+- `navigator.requestMIDIAccess` の無いブラウザ (Safari 系) では行ごと出さない
 
 ### 展開＝コード進行のロジック
 
@@ -402,7 +422,8 @@ MediaStream を長時間動かし続けること自体か、iPadOS のバック�
 
 ### その他
 
-- ブラウザストレージ（localStorage等）は不使用。設定の永続化は一切なく、リロードで全パラメータが初期値に戻る
+- ブラウザストレージは `localStorage` に表示言語 (`elevator-one:lang`) と MIDI クロックの出力先
+  (`elevator-one:midi-out`) を置くだけ。音のパラメータは永続化せず、リロードで初期値に戻る
 - 音をファイルに書き出す機能は持たない。録音は Issue #34 で廃止した（オーディオアウトからの録音や
   BlackHole 2ch などの代替手段があり、`MediaRecorder` とファイル書き出しの経路を抱える理由が無いため）
 - オフライン専用。外部ネットワークへの通信は存在しない（CDN等も読み込んでいない）

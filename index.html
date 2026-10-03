@@ -236,6 +236,11 @@
     font-size:.72rem;letter-spacing:.16em;margin-bottom:.18rem;
   }
   .param .val{font-family:var(--data);font-size:.65rem;color:var(--amber);letter-spacing:.04em}
+  /* MIDI クロックの出力先 */
+  .midisel{
+    width:100%;font-family:var(--data);font-size:.65rem;letter-spacing:.04em;color-scheme:dark;
+    color:var(--ink);background:var(--panel);border:1px solid var(--line);padding:.12rem .25rem;
+  }
   input[type=range]{
     -webkit-appearance:none;appearance:none;width:100%;height:14px;background:transparent;
   }
@@ -476,6 +481,9 @@ ja: {
   'param.harm':'和声率',
   'param.chordrhy':'刻み',
   'param.shuffleSec':'切り替え間隔',
+  'param.midi':'MIDIクロック出力',
+  'midi.off':'オフ',
+  'midi.connect':'接続…',
 
   'tip.play':'音を鳴らす。ブラウザの制限で読み込み直後は音が出ないため、まずここを押す。スペースキーでも切り替え可',
   'tip.pause':'音を止める。スペースキーでも切り替え可',
@@ -498,6 +506,7 @@ ja: {
   'tip.reso':'シーケンス用フィルターの開き具合（110〜3200Hz）。1音ごとにここを基準に開閉する',
   'tip.sres':'シーケンス用フィルターのQ。上げるほど癖の強い鳴りになる',
   'tip.harm':'0でドローン展開、1で和声展開のコード。中間では両者がクロスフェードして重なる',
+  'tip.midi':'選んだ出力先へ MIDI クロック (24 PPQN) と Start / Stop を送り、外部の機材をテンポに従わせる',
   'tip.chordrhy':'0.08未満でコードは持続音。上げると刻みが細かくなり、0.5以上ではコードの切り替わりが4小節から2小節ごとになる',
 
   'preset.stillness.name':'静止',
@@ -583,6 +592,9 @@ en: {
   'param.harm':'harmony',
   'param.chordrhy':'chop',
   'param.shuffleSec':'interval',
+  'param.midi':'MIDI clock output',
+  'midi.off':'off',
+  'midi.connect':'connect…',
 
   'tip.play':'Starts the sound. Browsers block audio until you interact with the page, so press this first. The space key works too',
   'tip.pause':'Stops the sound. The space key works too',
@@ -605,6 +617,7 @@ en: {
   'tip.reso':'How far the sequencer filter opens (110 to 3200 Hz). Every note sweeps around this point',
   'tip.sres':'Q of the sequencer filter. The higher it goes, the more pronounced the ring',
   'tip.harm':'At 0 the drone progression, at 1 the chords of the harmony progression. In between the two crossfade and overlap',
+  'tip.midi':'Sends MIDI clock (24 PPQN) with start and stop to the chosen output, so other gear follows the tempo',
   'tip.chordrhy':'Below 0.08 the chords sustain. Raising it chops them finer, and above 0.5 the chords change every 2 bars instead of every 4',
 
   'preset.stillness.name':'stillness',
@@ -1264,6 +1277,87 @@ function mutateBar(){
   renderSteps();
 }
 
+/* ============================================================
+   MIDI クロック
+   ------------------------------------------------------------
+   選んだ出力ポートへ 24 PPQN のクロックと Start / Stop を送る。
+   音と同じ先読みのループで、16分1つにつき6発を ctx.currentTime 基準で予約し、
+   send() のタイムスタンプ (performance.now 基準) に直して渡す。
+   setTimeout で都度送ると、メインスレッドの揺れがそのままジッタになるため
+   ============================================================ */
+const MIDI_STORE='elevator-one:midi-out';
+let midiAccess=null, midiOut=null, midiStartPending=false;
+// AudioContext の時刻を performance.now() の時刻へ直す。
+// getOutputTimestamp は「いま出口で鳴っている」時刻の対なので、鳴る音と揃う
+function audioToPerfMs(t){
+  const ts=ctx.getOutputTimestamp ? ctx.getOutputTimestamp() : null;
+  if(ts && ts.performanceTime>0) return ts.performanceTime + (t-ts.contextTime)*1000;
+  return performance.now() + (t-ctx.currentTime)*1000;
+}
+// 1ステップぶんのクロック。Start を待っている間は小節の頭まで送らない。
+// 受け手の1拍目を小節の頭に揃えるため
+function midiClockStep(time,dur,barHead){
+  if(!midiOut) return;
+  try{
+    if(midiStartPending){
+      if(!barHead) return;
+      midiOut.send([0xFA],audioToPerfMs(time));
+      midiStartPending=false;
+    }
+    for(let k=0;k<6;k++) midiOut.send([0xF8],audioToPerfMs(time+k*dur/6));
+  }catch(e){ /* ポートが消えた直後など。音は止めない */ }
+}
+// 先読みで予約済みのクロックを捨ててから Stop を送る。捨てないと Stop のあとにクロックが届く
+function midiStop(){
+  if(!midiOut) return;
+  try{ midiOut.clear?.(); midiOut.send([0xFC]); }catch(e){}
+}
+function midiSetOut(port){
+  if(port===midiOut) return;
+  if(running) midiStop();
+  midiOut=port;
+  midiStartPending=!!port;   // 再生中に選んだら次の小節の頭から始める
+  try{ port ? localStorage.setItem(MIDI_STORE,port.name) : localStorage.removeItem(MIDI_STORE); }catch(_){ }
+  vjlog('SYS', `midi out ${port ? port.name : 'off'}`);
+}
+// 出力先を選ぶ行。権限の確認を読み込み時に出さないよう、一覧は「接続…」を選んだときに取りに行く。
+// 前回選んだポートがあり、すでに許可済みなら黙って開き直す
+function midiPortSelect(host){
+  const wrap=document.createElement('div'); wrap.className='param';
+  wrap.innerHTML=`<label for="s_midi"><span data-i18n="param.midi" data-i18n-tip="tip.midi"></span></label>`;
+  const sel=document.createElement('select'); sel.id='s_midi'; sel.className='midisel';
+  wrap.appendChild(sel); host.appendChild(wrap);
+  let want=null;
+  try{ want=localStorage.getItem(MIDI_STORE); }catch(_){ }
+  const outs=()=>midiAccess ? [...midiAccess.outputs.values()] : [];
+  // 「オフ」「接続…」は言語切替に追随させる。ポート名は訳さない
+  const opt=(key,value)=>{ const o=new Option(t(key),value); o.dataset.i18n=key; return o; };
+  const fill=()=>{
+    const list=outs();
+    // 選んでいたポートが抜かれたら送るのをやめる。保存した名前は残し、挿し直せば戻る
+    if(midiOut && !list.some(o=>o.id===midiOut.id)) midiOut=null;
+    if(!midiOut && want){ const o=list.find(o=>o.name===want); if(o) midiSetOut(o); }
+    sel.replaceChildren(opt('midi.off',''),
+      ...(midiAccess ? list.map(o=>new Option(o.name,o.id)) : [opt('midi.connect','?')]));
+    sel.value=midiOut ? midiOut.id : '';
+  };
+  let opening=null;
+  const open=()=>opening??=navigator.requestMIDIAccess()
+    .then(a=>{ midiAccess=a; a.onstatechange=fill; fill(); })
+    .catch(()=>{ opening=null; });   // 断られたら次の「接続…」でもう一度聞く
+  sel.addEventListener('change',()=>{
+    if(sel.value==='?'){ sel.value=''; open(); return; }
+    const port=outs().find(o=>o.id===sel.value) || null;
+    want=port ? port.name : null;
+    midiSetOut(port);
+  });
+  fill();
+  if(want && navigator.permissions){
+    navigator.permissions.query({name:'midi'})
+      .then(st=>{ if(st.state==='granted') open(); }).catch(()=>{});
+  }
+}
+
 function seqTick(){
   if(!ctx||!running) return;
   while(nextStepTime < ctx.currentTime+.15){
@@ -1273,7 +1367,9 @@ function seqTick(){
     chordStep(idx,t);
     playStep(idx,t);
     showStepAt(idx, t);
-    nextStepTime=t+stepDur();
+    const d=stepDur();
+    midiClockStep(t,d,idx===0);
+    nextStepTime=t+d;
     stepIdx=(stepIdx+1)%16;
     if(stepIdx===0) mutateBar();
   }
@@ -1479,6 +1575,9 @@ function makeSlider(key,host){
 }
 for(const key of SLIDERS) makeSlider(key,paramsEl);
 for(const key of SEQP)    makeSlider(key,seqEl);
+// MIDI クロックの出力先。テンポを外へ渡すものなのでシーケンサ欄に置く。
+// Web MIDI の無い環境 (Safari 等) では行ごと出さない
+if(navigator.requestMIDIAccess) midiPortSelect(seqEl);
 for(const key of HARMP)   makeSlider(key,document.getElementById('harmparams'));
 // ゆらぎ時間
 {
@@ -1825,6 +1924,7 @@ async function startAudio(){
   setPowerUI(true);
   scheduleEvents(); scheduleRoot(); scheduleGrains();
   stepIdx=0; barCount=-1; chordPos=-1; nextStepTime=ctx.currentTime+.12;
+  midiStartPending=!!midiOut;   // 最初の小節の頭で Start を送る
   await startClock();
   routeToSink().catch(()=>{});   // 完了を待たない (待つと最初の音が遅れる)
   setupMediaSession();
@@ -1836,6 +1936,7 @@ function stopAudio(){
   if(!running) return;
   running=false;
   setPowerUI(false);
+  midiStop();
   flushDisposals();
   uiStep=-1; renderSteps();
   apply();

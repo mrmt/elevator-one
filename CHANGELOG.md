@@ -2,6 +2,13 @@
 
 ## 未リリース
 
+- **MIDI クロックを出力できるようにした** — 音作り → シーケンサの `MIDIクロック出力` / `MIDI clock output`
+  で出力ポートを選ぶと、Web MIDI で Timing Clock (24 PPQN)・Start・Stop を送る。外部の DAW・シーケンサ・
+  ドラムマシンを elevator-one のテンポに同期させられる。クロックは `seqTick()` の先読みで16分ごとに6発を
+  音声時計の時刻に予約し (`getOutputTimestamp` で `performance.now` 基準へ変換)、テンポの推移にも連続して追従する。
+  Start は小節の頭 (再生中に選んだときも次の小節の頭から)、Stop は `clear()` で予約を捨ててから送る。
+  `接続…` を選んだときだけ権限を確認し、選んだポート名は `localStorage` に保存して、許可済みなら次回自動で選び直す。
+  Web MIDI 非対応のブラウザ (Safari) では欄を出さない。elevator-three の同機能 (three:D-22) を移植した
 - **about のフッターにプライバシーポリシー (`../privacy/`) へのリンクを足した** — elevator-noise.com 全体のポリシーを `/privacy/` に置いたため
 - **VJ ウィンドウ (`?vjw`) を追加した** — `index.html?vjw` で開くと、黒背景に等幅フォントで
   内部状態 (全パラメータの target / current、ドローン各声やフィルタの AudioParam 実値、

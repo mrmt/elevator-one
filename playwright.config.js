@@ -84,6 +84,15 @@ export default defineConfig({
         launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
       },
     },
+    // MIDI クロック。Web MIDI は addInitScript の偽物に差し替える
+    {
+      name: 'midi-chromium',
+      testMatch: /midi\.spec\.js/,
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
+      },
+    },
     // 表示言語。locale はテスト側の test.use() で切り替える
     {
       name: 'i18n-chromium',
