@@ -1,6 +1,6 @@
 # Changelog
 
-## 未リリース
+## v1.5
 
 - **MIDI クロックを出力できるようにした** — 音作り → シーケンサの `MIDIクロック出力` / `MIDI clock output`
   で出力ポートを選ぶと、Web MIDI で Timing Clock (24 PPQN)・Start・Stop を送る。外部の DAW・シーケンサ・
